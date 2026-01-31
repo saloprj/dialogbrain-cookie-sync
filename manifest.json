@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "DialogBrain Cookie Sync",
+  "version": "1.0.1",
+  "description": "Sync Instagram and LinkedIn session cookies with DialogBrain for seamless messaging integration",
+  "author": "DialogBrain",
+  "homepage_url": "https://dialogbrain.com",
+
+  "permissions": [
+    "cookies",
+    "storage",
+    "alarms"
+  ],
+
+  "host_permissions": [
+    "https://*.instagram.com/*",
+    "https://*.linkedin.com/*",
+    "https://api.dialogbrain.com/*",
+    "http://localhost:8000/*"
+  ],
+
+  "externally_connectable": {
+    "matches": [
+      "https://dialogbrain.com/*",
+      "https://*.dialogbrain.com/*",
+      "http://localhost:3000/*",
+      "http://localhost:8000/*"
+    ]
+  },
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "options_page": "options.html"
+}
