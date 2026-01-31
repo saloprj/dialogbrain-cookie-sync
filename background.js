@@ -385,12 +385,23 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
   }
 
   if (message.type === 'GET_STATUS') {
-    sendResponse({
-      installed: true,
-      version: chrome.runtime.getManifest().version,
-      instagram: syncStatus.instagram,
-      linkedin: syncStatus.linkedin,
-    });
+    // Check cookies and include hasSession in response
+    (async () => {
+      const instagram = await getInstagramCookies();
+      const linkedin = await getLinkedInCookies();
+      sendResponse({
+        installed: true,
+        version: chrome.runtime.getManifest().version,
+        instagram: {
+          ...syncStatus.instagram,
+          hasSession: !!instagram.sessionid
+        },
+        linkedin: {
+          ...syncStatus.linkedin,
+          hasSession: !!linkedin.li_at
+        },
+      });
+    })();
     return true;
   }
 
