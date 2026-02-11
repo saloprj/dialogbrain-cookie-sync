@@ -16,13 +16,33 @@
 (function() {
   'use strict';
 
-  // Avoid double-injection
+  // Generate unique instance ID for this script load
+  // Used to detect stale listeners after extension reload
+  const INSTANCE_ID = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+  // Check for existing instance and invalidate it
   if (window.__dialogbrain_content_script_installed) {
-    return;
+    console.log('[DialogBrain Content] Previous instance detected, invalidating:', window.__dialogbrain_instance_id);
+    // Mark old instance as stale - old listeners will check this and exit early
+    window.__dialogbrain_instance_stale = true;
   }
+
+  // Store current instance ID
+  window.__dialogbrain_instance_id = INSTANCE_ID;
+  window.__dialogbrain_instance_stale = false;
   window.__dialogbrain_content_script_installed = true;
 
-  console.log('[DialogBrain Content] Instagram content script initializing...');
+  // Clear any existing intervals from previous instance
+  if (window.__dialogbrain_tracking_interval) {
+    clearInterval(window.__dialogbrain_tracking_interval);
+    window.__dialogbrain_tracking_interval = null;
+  }
+  if (window.__dialogbrain_fallback_interval) {
+    clearInterval(window.__dialogbrain_fallback_interval);
+    window.__dialogbrain_fallback_interval = null;
+  }
+
+  console.log('[DialogBrain Content] Instagram content script initializing, instance:', INSTANCE_ID);
 
   // =============================================================================
   // State
@@ -510,6 +530,11 @@
   // =============================================================================
 
   function handleInterceptorMessage(event) {
+    // Check if this instance is stale (extension was reloaded)
+    if (window.__dialogbrain_instance_id !== INSTANCE_ID) {
+      return;
+    }
+
     // Only accept messages from our interceptor
     if (event.source !== window || event.data?.source !== 'dialogbrain_ws_interceptor') {
       return;
@@ -564,19 +589,23 @@
   // Fallback Polling (when WebSocket is unreliable)
   // =============================================================================
 
-  let fallbackPollingInterval = null;
   let lastKnownThreadState = null;
 
   /**
    * Start periodic DOM polling as fallback when WebSocket is disconnected.
    */
   function startFallbackPolling() {
-    if (fallbackPollingInterval) return; // Already running
+    if (window.__dialogbrain_fallback_interval) return; // Already running
 
     console.log('[DialogBrain Content] Starting fallback DOM polling');
 
     // Poll every 5 seconds
-    fallbackPollingInterval = setInterval(() => {
+    window.__dialogbrain_fallback_interval = setInterval(() => {
+      // Check if this instance is stale
+      if (window.__dialogbrain_instance_id !== INSTANCE_ID) {
+        stopFallbackPolling();
+        return;
+      }
       if (state.wsConnected) {
         stopFallbackPolling();
         return;
@@ -592,10 +621,10 @@
    * Stop fallback polling when WebSocket reconnects.
    */
   function stopFallbackPolling() {
-    if (fallbackPollingInterval) {
+    if (window.__dialogbrain_fallback_interval) {
       console.log('[DialogBrain Content] Stopping fallback polling (WS reconnected)');
-      clearInterval(fallbackPollingInterval);
-      fallbackPollingInterval = null;
+      clearInterval(window.__dialogbrain_fallback_interval);
+      window.__dialogbrain_fallback_interval = null;
     }
   }
 
@@ -1244,6 +1273,11 @@
    * Listen for fetch responses from injected page-context scripts.
    */
   window.addEventListener('message', (event) => {
+    // Check if this instance is stale (extension was reloaded)
+    if (window.__dialogbrain_instance_id !== INSTANCE_ID) {
+      return;
+    }
+
     if (event.source !== window) return;
     if (!event.data) return;
 
@@ -1436,6 +1470,12 @@
   // =============================================================================
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    // Check if this instance is stale (extension was reloaded)
+    if (window.__dialogbrain_instance_id !== INSTANCE_ID) {
+      console.log('[DialogBrain Content] Ignoring message - stale instance');
+      return;
+    }
+
     if (message.target !== 'instagram_content_script') {
       return;
     }
@@ -1581,7 +1621,7 @@
   injectFetchHelper();
 
   // Track page state changes
-  setInterval(trackPageState, 1000);
+  window.__dialogbrain_tracking_interval = setInterval(trackPageState, 1000);
 
   // Notify background that content script is ready
   notifyBackground('CONTENT_SCRIPT_READY', {
@@ -1609,6 +1649,10 @@
    * Process queued auto-approve drafts when tab becomes visible
    */
   async function processAutoApproveQueue() {
+    // Check if this instance is stale
+    if (window.__dialogbrain_instance_id !== INSTANCE_ID) {
+      return;
+    }
     if (isProcessingAutoQueue) return;
     if (autoApproveQueue.length === 0) return;
     if (document.visibilityState !== 'visible') return;
@@ -1617,6 +1661,11 @@
     console.log('[DialogBrain Content] Tab visible, processing', autoApproveQueue.length, 'queued auto-approves');
 
     while (autoApproveQueue.length > 0 && document.visibilityState === 'visible') {
+      // Check if this instance is stale during processing
+      if (window.__dialogbrain_instance_id !== INSTANCE_ID) {
+        console.log('[DialogBrain Content] Instance became stale during queue processing');
+        break;
+      }
       const payload = autoApproveQueue.shift();
       try {
         await sendAutoApproveDraft(payload);
@@ -1634,6 +1683,10 @@
 
   // Listen for tab visibility change
   document.addEventListener('visibilitychange', () => {
+    // Check if this instance is stale
+    if (window.__dialogbrain_instance_id !== INSTANCE_ID) {
+      return;
+    }
     if (document.visibilityState === 'visible') {
       console.log('[DialogBrain Content] Tab became visible, checking auto-approve queue');
       processAutoApproveQueue();
@@ -1747,6 +1800,11 @@
 
   // Listen for messages from background (only for auto-approve)
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    // Check if this instance is stale (extension was reloaded)
+    if (window.__dialogbrain_instance_id !== INSTANCE_ID) {
+      return;
+    }
+
     if (!message || message.target !== 'instagram_content_script') return;
     if (message.source !== 'dialogbrain_ws') return;
 
