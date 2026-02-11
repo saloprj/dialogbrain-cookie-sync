@@ -1928,6 +1928,10 @@
     navigateToThread: navigateToThreadSPA,
     getCurrentThreadId: getCurrentThreadId,
     storePendingMessage: storePendingMessage,
+    // Add draft to unified queue for serial processing
+    queueForSend: (payload) => {
+      handleAutoApproveDraft(payload);
+    },
   };
 
 })();

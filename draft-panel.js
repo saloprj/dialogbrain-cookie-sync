@@ -7426,16 +7426,8 @@
       const instagramThreadId = threadIdMatch ? threadIdMatch[1] : draft.threadId;
       const messageText = editedText || draft.editedText || draft.responseText;
       const api = window.__dialogbrain_api;
-      if (!api) {
+      if (!(api == null ? void 0 : api.queueForSend)) {
         console.error("[DraftPanel] Vanilla content script API not available");
-        setDrafts((prev) => {
-          const next = new Map(prev);
-          const d = next.get(draftId);
-          if (d) {
-            next.set(draftId, { ...d, status: "pending" });
-          }
-          return next;
-        });
         throw new Error("Content script API not available");
       }
       try {
@@ -7449,41 +7441,25 @@
             if ((response == null ? void 0 : response.success) === false) {
               reject(new Error((response == null ? void 0 : response.error) || "Failed to queue draft"));
             } else {
-              console.log(`[DraftPanel] Draft ${draftId} queued (status -> approved)`);
+              console.log(`[DraftPanel] Draft ${draftId} queued in backend (status -> approved)`);
               resolve();
             }
           });
         });
-        const currentThread = api.getCurrentThreadId();
-        if (currentThread !== String(instagramThreadId)) {
-          console.log(`[DraftPanel] Navigating to thread: ${instagramThreadId}`);
-          const spaSuccess = await api.navigateToThread(instagramThreadId);
-          if (!spaSuccess) {
-            api.storePendingMessage(instagramThreadId, messageText);
-            localStorage.setItem("dialogbrain_pending_draft_id", String(draftId));
-            location.href = `https://www.instagram.com/direct/t/${instagramThreadId}/`;
-            return;
+        setDrafts((prev) => {
+          const next = new Map(prev);
+          const d = next.get(draftId);
+          if (d) {
+            next.set(draftId, { ...d, status: "approved" });
           }
-          await new Promise((resolve) => setTimeout(resolve, 1e3));
-        }
-        const sendResult = await api.sendMessageViaDom(instagramThreadId, messageText);
-        if (!sendResult.success) {
-          throw new Error(sendResult.error || "Failed to send message");
-        }
-        return new Promise((resolve, reject) => {
-          chrome.runtime.sendMessage({
-            type: "APPROVE_DRAFT",
-            draftId,
-            alreadySent: true
-          }, (response) => {
-            console.log(`[DraftPanel] Draft ${draftId} sent (status -> sent)`);
-            setDrafts((prev) => {
-              const next = new Map(prev);
-              next.delete(draftId);
-              return next;
-            });
-            resolve();
-          });
+          return next;
+        });
+        console.log(`[DraftPanel] Adding draft ${draftId} to unified queue`);
+        api.queueForSend({
+          draftId,
+          threadId: instagramThreadId,
+          channelRef: draft.channelRef,
+          text: messageText
         });
       } catch (error) {
         setDrafts((prev) => {
