@@ -202,9 +202,9 @@
   font-weight: 500;
 }
 
-/* Response block - dark style like web version */
+/* Response block - blue style like web version */
 .db-draft-response {
-  background: linear-gradient(135deg, #5b4a99 0%, #4a3d7a 100%);
+  background: #2F7AB6;
   padding: 10px 12px;
   border-radius: 10px;
   margin-top: 8px;
@@ -414,12 +414,12 @@
 }
 
 .db-btn-send {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: #000000;
   color: #fff;
 }
 
 .db-btn-send:hover {
-  background: linear-gradient(135deg, #5a6fd6, #6a4190);
+  background: #1a1a1a;
 }
 
 .db-btn-reject {
