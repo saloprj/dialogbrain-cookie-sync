@@ -17,12 +17,12 @@
 // API endpoints
 const CONFIG = {
   // Production API
-  PROD_API_URL: 'https://api.dialogbrain.com',
+  PROD_API_URL: 'https://stage-api.dialogbrain.com',
   // Development API
   DEV_API_URL: 'http://localhost:8000',
 
   // WebSocket URLs
-  PROD_WS_URL: 'wss://api.dialogbrain.com/ws',
+  PROD_WS_URL: 'wss://stage-api.dialogbrain.com/ws/ws',
   DEV_WS_URL: 'ws://localhost:8000/ws',
 
   // Default settings (can be overridden in options)
