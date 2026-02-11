@@ -143,6 +143,9 @@ async function init() {
   }
   if (settingsLink) {
     settingsLink.href = `${baseUrl}/settings`;
+    // Show domain instead of "Open DialogBrain Settings"
+    const domain = baseUrl.replace(/^https?:\/\//, '');
+    settingsLink.textContent = domain;
   }
 
   if (!settings.auth_token) {
