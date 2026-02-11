@@ -2,6 +2,8 @@
 
 Chrome extension for syncing Instagram/LinkedIn sessions with DialogBrain.
 
+**Current Version: 1.1.1**
+
 ## Installation
 
 1. Download this repository as ZIP (Code → Download ZIP)

@@ -588,6 +588,12 @@
   background: #e53e3e;
 }
 
+.db-version {
+  font-size: 10px;
+  color: #a0aec0;
+  font-weight: 400;
+}
+
 /* Queue sections */
 .db-queue-section {
   margin-bottom: 4px;
