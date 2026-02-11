@@ -24,9 +24,9 @@ const loginBtn = document.getElementById('login-btn');
 const loginError = document.getElementById('login-error');
 
 // URLs for different environments
-const PROD_URL = 'https://dialogbrain.com';
+const PROD_URL = 'https://stage.dialogbrain.com';
 const DEV_URL = 'http://localhost:3000';
-const PROD_API_URL = 'https://api.dialogbrain.com';
+const PROD_API_URL = 'https://stage-api.dialogbrain.com';
 const DEV_API_URL = 'http://localhost:8000';
 
 // Get API URL based on dev mode

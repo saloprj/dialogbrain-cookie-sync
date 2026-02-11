@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "DialogBrain Cookie Sync",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Sync Instagram and LinkedIn session cookies with DialogBrain for seamless messaging integration",
   "author": "DialogBrain",
-  "homepage_url": "https://dialogbrain.com",
+  "homepage_url": "https://stage.dialogbrain.com",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwkA8KWLu36gmc2IHc2IMfoUbA57MZiRN8OgpZGhcgfVLgPND1EEi+brBVdolpqu8hXfZuG7wwwnKH56efhHMeRkaS1xbLav7xu2CubTJ59SmacbpX6pUKtCJsdUcaOeDImFjzCokA+pgMPjLreSec4FeqOFJGnLnxBE0Q+Vowt5QYNrx308iShdHARzXxBclA2yQdjuPrVI5X2BMDsiVCFWtxL91068Xy2Kdc953qLmD1nXOWqkuHiy2KmwAJWdFHL9TdlqG+iZhfRa8rxzO78boORqa5EH8KcpLEcLmXkguhw98Cl/CXh8Fz9y2xeTPI8preyRADMDGEHxtwrzU6wIDAQAB",
   "permissions": [
     "cookies",
@@ -16,12 +16,12 @@
   "host_permissions": [
     "https://*.instagram.com/*",
     "https://*.linkedin.com/*",
-    "https://api.dialogbrain.com/*",
+    "https://stage-api.dialogbrain.com/*",
     "http://localhost:8000/*"
   ],
   "externally_connectable": {
     "matches": [
-      "https://dialogbrain.com/*",
+      "https://stage.dialogbrain.com/*",
       "https://*.dialogbrain.com/*",
       "http://localhost:3000/*",
       "http://localhost:8000/*"

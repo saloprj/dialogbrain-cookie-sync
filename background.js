@@ -3205,8 +3205,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
   // Verify sender is from allowed origins
   const allowedOrigins = [
-    'https://dialogbrain.com',
-    'https://app.dialogbrain.com',
+    'https://stage.dialogbrain.com',
+    'https://stage.dialogbrain.com',
     'http://localhost:3000',
   ];
 
