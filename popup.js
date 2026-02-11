@@ -325,11 +325,11 @@ logoutBtn.addEventListener('click', () => {
 // =============================================================================
 
 // The web app can send auth token via postMessage or URL params
-// This allows seamless login flow from dialogbrain.com
+// This allows seamless login flow from stage.dialogbrain.com
 
 window.addEventListener('message', (event) => {
   // Only accept messages from DialogBrain
-  if (!event.origin.includes('dialogbrain.com') && !event.origin.includes('localhost')) {
+  if (!event.origin.includes('stage.dialogbrain.com') && !event.origin.includes('localhost')) {
     return;
   }
 

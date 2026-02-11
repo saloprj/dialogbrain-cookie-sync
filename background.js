@@ -22,7 +22,7 @@ const CONFIG = {
   DEV_API_URL: 'http://localhost:8000',
 
   // WebSocket URLs
-  PROD_WS_URL: 'wss://stage-api.dialogbrain.com/ws/ws',
+  PROD_WS_URL: 'wss://stage-api.dialogbrain.com/ws',
   DEV_WS_URL: 'ws://localhost:8000/ws',
 
   // Default settings (can be overridden in options)
