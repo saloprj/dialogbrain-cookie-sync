@@ -15,6 +15,36 @@ const linkedinStatus = document.getElementById('linkedin-status');
 const linkedinInfo = document.getElementById('linkedin-info');
 const linkedinSyncBtn = document.getElementById('linkedin-sync-btn');
 const logoutBtn = document.getElementById('logout-btn');
+const connectBtn = document.getElementById('connect-btn');
+const settingsLink = document.getElementById('settings-link');
+const loginForm = document.getElementById('login-form');
+const loginEmail = document.getElementById('login-email');
+const loginPassword = document.getElementById('login-password');
+const loginBtn = document.getElementById('login-btn');
+const loginError = document.getElementById('login-error');
+
+// URLs for different environments
+const PROD_URL = 'https://dialogbrain.com';
+const DEV_URL = 'http://localhost:3000';
+const PROD_API_URL = 'https://api.dialogbrain.com';
+const DEV_API_URL = 'http://localhost:8000';
+
+// Get API URL based on dev mode
+async function getApiUrl() {
+  const settings = await chrome.storage.local.get(['dev_mode']);
+
+  // Also auto-detect if user has localhost tab open
+  let hasLocalhostTab = false;
+  try {
+    const tabs = await chrome.tabs.query({ url: ['http://localhost:*/*', 'http://127.0.0.1:*/*'] });
+    hasLocalhostTab = tabs.length > 0;
+  } catch (e) {
+    // tabs permission may not be available
+  }
+
+  const useDevMode = settings.dev_mode || hasLocalhostTab;
+  return useDevMode ? DEV_API_URL : PROD_API_URL;
+}
 
 // =============================================================================
 // Status Display
@@ -92,13 +122,40 @@ function updatePlatformStatus(platform, status, cookies) {
 // =============================================================================
 
 async function init() {
-  // Check if user is logged in
-  const storage = await chrome.storage.local.get(['auth_token']);
+  // Check dev mode and update URLs
+  // Also auto-detect if user has localhost tab open
+  const settings = await chrome.storage.local.get(['dev_mode', 'auth_token']);
 
-  if (!storage.auth_token) {
-    // Show login section
+  // Auto-detect: check if any tab is on localhost
+  let hasLocalhostTab = false;
+  try {
+    const tabs = await chrome.tabs.query({ url: ['http://localhost:*/*', 'http://127.0.0.1:*/*'] });
+    hasLocalhostTab = tabs.length > 0;
+  } catch (e) {
+    // tabs permission may not be available
+  }
+
+  const useDevMode = settings.dev_mode || hasLocalhostTab;
+  const baseUrl = useDevMode ? DEV_URL : PROD_URL;
+
+  if (connectBtn) {
+    connectBtn.href = baseUrl;
+  }
+  if (settingsLink) {
+    settingsLink.href = `${baseUrl}/settings`;
+  }
+
+  if (!settings.auth_token) {
+    // Show login section and reset form
     loginSection.style.display = 'block';
     mainSection.style.display = 'none';
+    // Reset login form state
+    if (loginForm) loginForm.reset();
+    if (loginBtn) {
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Login';
+    }
+    if (loginError) loginError.textContent = '';
     return;
   }
 
@@ -129,6 +186,76 @@ async function init() {
 // =============================================================================
 // Event Handlers
 // =============================================================================
+
+// Login form handler
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const email = loginEmail.value.trim();
+  const password = loginPassword.value;
+
+  if (!email || !password) {
+    loginError.textContent = 'Please enter email and password';
+    return;
+  }
+
+  // Disable form while logging in
+  loginBtn.disabled = true;
+  loginBtn.textContent = 'Logging in...';
+  loginError.textContent = '';
+
+  try {
+    const apiUrl = await getApiUrl();
+    const response = await fetch(`${apiUrl}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      // Handle specific error codes
+      if (data.detail?.error_code === 'verification_required') {
+        throw new Error('Please verify your email first');
+      }
+      throw new Error(data.detail || data.message || 'Login failed');
+    }
+
+    // Check for 2FA required
+    if (data.status === '2fa_required') {
+      throw new Error('2FA login not supported in extension. Please login via web app.');
+    }
+
+    // Store tokens via background script
+    const isDevMode = apiUrl.includes('localhost');
+    chrome.runtime.sendMessage({
+      type: 'SET_AUTH_TOKEN',
+      token: data.accessToken,
+      refreshToken: data.refreshToken
+    }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('Failed to store token:', chrome.runtime.lastError);
+        loginError.textContent = 'Failed to save login. Please try again.';
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Login';
+        return;
+      }
+
+      // Store dev_mode preference
+      chrome.storage.local.set({ dev_mode: isDevMode });
+
+      // Success - refresh UI
+      init();
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    loginError.textContent = error.message;
+    loginBtn.disabled = false;
+    loginBtn.textContent = 'Login';
+  }
+});
 
 instagramSyncBtn.addEventListener('click', () => {
   instagramSyncBtn.disabled = true;

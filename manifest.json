@@ -1,24 +1,24 @@
 {
   "manifest_version": 3,
   "name": "DialogBrain Cookie Sync",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Sync Instagram and LinkedIn session cookies with DialogBrain for seamless messaging integration",
   "author": "DialogBrain",
   "homepage_url": "https://dialogbrain.com",
-
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwkA8KWLu36gmc2IHc2IMfoUbA57MZiRN8OgpZGhcgfVLgPND1EEi+brBVdolpqu8hXfZuG7wwwnKH56efhHMeRkaS1xbLav7xu2CubTJ59SmacbpX6pUKtCJsdUcaOeDImFjzCokA+pgMPjLreSec4FeqOFJGnLnxBE0Q+Vowt5QYNrx308iShdHARzXxBclA2yQdjuPrVI5X2BMDsiVCFWtxL91068Xy2Kdc953qLmD1nXOWqkuHiy2KmwAJWdFHL9TdlqG+iZhfRa8rxzO78boORqa5EH8KcpLEcLmXkguhw98Cl/CXh8Fz9y2xeTPI8preyRADMDGEHxtwrzU6wIDAQAB",
   "permissions": [
     "cookies",
     "storage",
-    "alarms"
+    "alarms",
+    "tabs",
+    "scripting"
   ],
-
   "host_permissions": [
     "https://*.instagram.com/*",
     "https://*.linkedin.com/*",
     "https://api.dialogbrain.com/*",
     "http://localhost:8000/*"
   ],
-
   "externally_connectable": {
     "matches": [
       "https://dialogbrain.com/*",
@@ -27,12 +27,43 @@
       "http://localhost:8000/*"
     ]
   },
-
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
-
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.instagram.com/*"
+      ],
+      "js": [
+        "instagram-content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://www.instagram.com/direct/*"
+      ],
+      "js": [
+        "draft-panel.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "instagram-ws-interceptor.js",
+        "instagram-fetch-helper.js"
+      ],
+      "matches": [
+        "https://www.instagram.com/*"
+      ]
+    }
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -42,13 +73,11 @@
       "128": "icons/icon128.png"
     }
   },
-
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-
   "options_page": "options.html"
 }

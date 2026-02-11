@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>DialogBrain Cookie Sync - Options</title>
   <style>
+    /* Clean Flat Design */
     * {
       box-sizing: border-box;
       margin: 0;
@@ -11,63 +12,91 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      max-width: 600px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
+      max-width: 620px;
       margin: 0 auto;
-      padding: 24px;
-      background: #f8f9fa;
-      color: #1a1a1a;
+      padding: 32px;
+      background: #f7f8fa;
+      color: #4a5568;
+      min-height: 100vh;
     }
 
-    h1 {
-      font-size: 24px;
-      margin-bottom: 8px;
-    }
-
-    .subtitle {
-      color: #666;
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
       margin-bottom: 24px;
     }
 
+    .header .db-logo {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .header-text h1 {
+      font-size: 20px;
+      margin-bottom: 4px;
+      color: #2d3748;
+      font-weight: 700;
+    }
+
+    .header-text .subtitle {
+      color: #718096;
+      font-size: 13px;
+      font-weight: 500;
+      margin: 0;
+    }
+
     .section {
-      background: white;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      border: none;
     }
 
     .section h2 {
-      font-size: 16px;
-      margin-bottom: 12px;
+      font-size: 15px;
+      margin-bottom: 16px;
+      color: #2d3748;
+      font-weight: 600;
     }
 
     .option-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px 0;
-      border-bottom: 1px solid #f0f0f0;
+      padding: 14px 0;
     }
 
-    .option-row:last-child {
+    .option-row:not(:last-child) {
       border-bottom: none;
     }
 
     .option-label {
       font-size: 14px;
+      color: #2d3748;
+      font-weight: 500;
     }
 
     .option-description {
       font-size: 12px;
-      color: #666;
+      color: #718096;
       margin-top: 4px;
     }
 
     .toggle {
       position: relative;
-      width: 44px;
-      height: 24px;
+      width: 50px;
+      height: 28px;
     }
 
     .toggle input {
@@ -83,111 +112,164 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background-color: #ccc;
-      border-radius: 24px;
-      transition: 0.3s;
+      background: #cbd5e0;
+      border-radius: 28px;
+      transition: all 0.2s ease;
     }
 
     .toggle-slider:before {
       position: absolute;
       content: "";
-      height: 18px;
-      width: 18px;
+      height: 22px;
+      width: 22px;
       left: 3px;
       bottom: 3px;
-      background-color: white;
+      background: #fff;
       border-radius: 50%;
-      transition: 0.3s;
+      transition: all 0.2s ease;
     }
 
     .toggle input:checked + .toggle-slider {
-      background-color: #2563eb;
+      background: linear-gradient(135deg, #667eea, #764ba2);
     }
 
     .toggle input:checked + .toggle-slider:before {
-      transform: translateX(20px);
+      transform: translateX(22px);
+    }
+
+    select {
+      padding: 10px 16px;
+      background: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #4a5568;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    select:focus {
     }
 
     .btn {
-      padding: 10px 20px;
+      padding: 12px 24px;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
-      margin-right: 8px;
+      margin-right: 10px;
+      transition: all 0.2s ease;
     }
 
     .btn-primary {
-      background: #2563eb;
+      background: linear-gradient(135deg, #667eea, #764ba2);
       color: white;
     }
 
     .btn-primary:hover {
-      background: #1d4ed8;
+      opacity: 0.9;
     }
 
     .btn-secondary {
-      background: #f3f4f6;
-      color: #1a1a1a;
-      border: 1px solid #e5e7eb;
+      background: #fff;
+      color: #4a5568;
+      border: none;
     }
 
     .btn-secondary:hover {
-      background: #e5e7eb;
+      background: #f7f8fa;
     }
 
     .btn-danger {
-      background: #fee2e2;
-      color: #991b1b;
-      border: 1px solid #fca5a5;
+      background: #fff;
+      color: #e53e3e;
+      border: none;
     }
 
     .btn-danger:hover {
-      background: #fecaca;
+      background: #fee2e2;
     }
 
     .actions {
-      margin-top: 24px;
+      margin-top: 28px;
     }
 
     .status-message {
-      padding: 12px;
-      border-radius: 6px;
-      margin-top: 16px;
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin-top: 20px;
       display: none;
+      font-weight: 500;
+      font-size: 13px;
     }
 
     .status-message.success {
-      background: #dcfce7;
-      color: #166534;
+      background: #c6f6d5;
+      color: #22543d;
       display: block;
     }
 
     .status-message.error {
-      background: #fee2e2;
-      color: #991b1b;
+      background: #fed7d7;
+      color: #9b2c2c;
       display: block;
     }
 
     .info-box {
-      padding: 12px;
-      background: #f3f4f6;
-      border-radius: 6px;
+      padding: 14px 16px;
+      background: #f7f8fa;
+      border: none;
+      border-radius: 8px;
       font-size: 13px;
-      color: #666;
+      color: #4a5568;
+      line-height: 1.6;
+    }
+
+    .info-box strong {
+      color: #2d3748;
     }
 
     .info-box code {
-      background: #e5e7eb;
-      padding: 2px 4px;
-      border-radius: 3px;
-      font-family: monospace;
+      background: #edf2f7;
+      color: #667eea;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 12px;
     }
   </style>
 </head>
 <body>
-  <h1>DialogBrain Cookie Sync</h1>
-  <p class="subtitle">Configure how the extension syncs your session cookies</p>
+  <div class="header">
+    <div class="db-logo">DB</div>
+    <div class="header-text">
+      <h1>DialogBrain Cookie Sync</h1>
+      <p class="subtitle">Configure how the extension syncs your session cookies</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Instagram Sync Method</h2>
+
+    <div class="option-row">
+      <div>
+        <div class="option-label">Sync method</div>
+        <div class="option-description">How to connect Instagram to DialogBrain</div>
+      </div>
+      <select id="instagram-method">
+        <option value="unipile">Unipile (Recommended)</option>
+        <option value="direct">Extension Direct</option>
+      </select>
+    </div>
+
+    <div id="method-info" class="info-box" style="margin-top: 12px;">
+      <strong>Unipile (Recommended):</strong> Sends cookies to Unipile for reliable session management.
+      Supports full message sync, real-time webhooks, and automatic reconnection.
+    </div>
+  </div>
 
   <div class="section">
     <h2>Sync Settings</h2>
@@ -255,6 +337,8 @@
   <div id="status-message" class="status-message"></div>
 
   <script>
+    const instagramMethodSelect = document.getElementById('instagram-method');
+    const methodInfo = document.getElementById('method-info');
     const autoSyncToggle = document.getElementById('auto-sync');
     const periodicSyncToggle = document.getElementById('periodic-sync');
     const devModeToggle = document.getElementById('dev-mode');
@@ -263,14 +347,28 @@
     const resetBtn = document.getElementById('reset-btn');
     const statusMessage = document.getElementById('status-message');
 
+    // Method descriptions
+    const methodDescriptions = {
+      unipile: '<strong>Unipile (Recommended):</strong> Sends cookies to Unipile for reliable session management. Supports full message sync, real-time webhooks, and automatic reconnection.',
+      direct: '<strong>Extension Direct:</strong> Syncs messages via browser extension. Uses WebSocket interception for real-time events and extension-side API calls for message history. No server-side cookies needed.',
+    };
+
+    // Update method info on change
+    instagramMethodSelect.addEventListener('change', () => {
+      methodInfo.innerHTML = methodDescriptions[instagramMethodSelect.value];
+    });
+
     // Load settings
     async function loadSettings() {
       const settings = await chrome.storage.local.get([
+        'instagram_sync_method',
         'auto_sync_enabled',
         'periodic_sync_enabled',
         'dev_mode',
       ]);
 
+      instagramMethodSelect.value = settings.instagram_sync_method || 'unipile';
+      methodInfo.innerHTML = methodDescriptions[instagramMethodSelect.value];
       autoSyncToggle.checked = settings.auto_sync_enabled !== false;
       periodicSyncToggle.checked = settings.periodic_sync_enabled !== false;
       devModeToggle.checked = settings.dev_mode === true;
@@ -279,16 +377,22 @@
     // Save settings
     async function saveSettings() {
       await chrome.storage.local.set({
+        instagram_sync_method: instagramMethodSelect.value,
         auto_sync_enabled: autoSyncToggle.checked,
         periodic_sync_enabled: periodicSyncToggle.checked,
         dev_mode: devModeToggle.checked,
       });
+
+      // Notify background script of settings change
+      chrome.runtime.sendMessage({ type: 'SETTINGS_CHANGED' });
 
       showStatus('Settings saved successfully', 'success');
     }
 
     // Reset to defaults
     async function resetSettings() {
+      instagramMethodSelect.value = 'unipile';
+      methodInfo.innerHTML = methodDescriptions['unipile'];
       autoSyncToggle.checked = true;
       periodicSyncToggle.checked = true;
       devModeToggle.checked = false;
