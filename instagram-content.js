@@ -1644,6 +1644,8 @@
   // Queue for auto-approve drafts waiting for tab to become visible
   const autoApproveQueue = [];
   let isProcessingAutoQueue = false;
+  // Track draft IDs that have been processed or are being processed (prevents duplicates)
+  const processedOrProcessingDraftIds = new Set();
 
   /**
    * Process queued auto-approve drafts when tab becomes visible
@@ -1667,14 +1669,38 @@
         break;
       }
       const payload = autoApproveQueue.shift();
+      // Track this draft as being processed (prevents re-adding from GET_PENDING_AUTO_SENDS)
+      processedOrProcessingDraftIds.add(payload.draftId);
+
+      // Notify DraftPanel that this draft is now sending
+      try {
+        chrome.runtime.sendMessage({
+          source: 'instagram_content_script',
+          type: 'AUTO_SEND_STARTED',
+          payload: { draftId: payload.draftId },
+        });
+      } catch (e) {
+        // Ignore
+      }
+
       try {
         await sendAutoApproveDraft(payload);
       } catch (e) {
         console.error('[DialogBrain Content] Failed to process queued auto-approve:', e);
+        // Notify failure so UI can update
+        try {
+          chrome.runtime.sendMessage({
+            source: 'instagram_content_script',
+            type: 'AUTO_SEND_COMPLETE',
+            payload: { draftId: payload.draftId, success: false },
+          });
+        } catch (e2) {
+          // Ignore
+        }
       }
-      // Small delay between sends
+      // Small delay between sends to avoid rate limiting
       if (autoApproveQueue.length > 0) {
-        await sleep(1000);
+        await sleep(2000);
       }
     }
 
@@ -1696,15 +1722,31 @@
   /**
    * Handle auto-approve draft (when auto-mode is enabled)
    * This is called from background script when auto-mode triggers
+   *
+   * IMPORTANT: Always adds to queue and processes serially to prevent
+   * concurrent DOM manipulations that cause garbled messages.
    */
-  async function handleAutoApproveDraft(payload) {
+  function handleAutoApproveDraft(payload) {
     console.log('[DialogBrain Content] Auto-approving draft:', payload.draftId, 'tab visible:', document.visibilityState === 'visible');
 
-    // Check if tab is visible
+    // Check if already in queue or being processed to prevent duplicates
+    if (autoApproveQueue.some(item => item.draftId === payload.draftId)) {
+      console.log('[DialogBrain Content] Draft', payload.draftId, 'already in queue, skipping');
+      return;
+    }
+    if (processedOrProcessingDraftIds.has(payload.draftId)) {
+      console.log('[DialogBrain Content] Draft', payload.draftId, 'already processed or processing, skipping');
+      return;
+    }
+
+    // Always add to queue for serial processing
+    autoApproveQueue.push(payload);
+    // Also track in set to prevent re-adding if shifted before another message arrives
+    processedOrProcessingDraftIds.add(payload.draftId);
+    console.log('[DialogBrain Content] Added draft', payload.draftId, 'to queue, length:', autoApproveQueue.length);
+
+    // If tab not visible, notify background
     if (document.visibilityState !== 'visible') {
-      console.log('[DialogBrain Content] Tab not visible, queueing draft:', payload.draftId);
-      autoApproveQueue.push(payload);
-      // Notify background that draft is queued (awaiting tab visibility)
       try {
         chrome.runtime.sendMessage({
           source: 'instagram_content_script',
@@ -1717,8 +1759,8 @@
       return;
     }
 
-    // Tab is visible, send immediately
-    await sendAutoApproveDraft(payload);
+    // Tab is visible - trigger queue processing (will be serialized)
+    processAutoApproveQueue();
   }
 
   /**

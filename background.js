@@ -2125,6 +2125,24 @@ async function handleInstagramContentScriptMessage(message, sender, sendResponse
       });
       break;
 
+    case 'AUTO_SEND_STARTED':
+      // Content script started sending a draft - update status to 'sending'
+      console.log(`[DialogBrain Hybrid] Auto-send started: draft ${payload?.draftId}`);
+      if (payload?.draftId) {
+        const draft = draftState.drafts.get(payload.draftId);
+        if (draft) {
+          draft.status = 'sending';
+          draftState.drafts.set(payload.draftId, draft);
+        }
+        // Notify DraftPanel about status change
+        extensionWS._notifyContentScripts('DRAFT_UPDATED', {
+          draft_id: payload.draftId,
+          status: 'sending',
+        });
+      }
+      sendResponse({ success: true });
+      break;
+
     case 'AUTO_SEND_COMPLETE':
       // Content script finished sending auto-approved draft
       console.log(`[DialogBrain Hybrid] Auto-send complete: draft ${payload?.draftId}, success=${payload?.success}`);

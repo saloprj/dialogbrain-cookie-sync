@@ -2,7 +2,7 @@
 
 Chrome extension for syncing Instagram/LinkedIn sessions with DialogBrain.
 
-**Version: 1.1.11-stage**
+**Version: 1.1.12-stage**
 
 **⚠️ STAGE VERSION** - Connects to stage-api.dialogbrain.com
 
