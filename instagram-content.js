@@ -1393,8 +1393,8 @@
   }
 
   /**
-   * Fix thread IDs by fetching inbox and sending to backend.
-   * This fixes threads that were stored with thread_v2_id instead of thread_id.
+   * Normalize thread channel_refs by fetching inbox and sending to backend.
+   * This normalizes threads to use thread_v2_id format for cross-provider consistency.
    */
   async function fixThreadIds(accountId, apiUrl, authToken) {
     console.log('[DialogBrain Content] Starting thread ID fix for account:', accountId);
@@ -1547,6 +1547,46 @@
           source: message.source || 'unknown',
         });
         sendResponse({ success: true, polled: true });
+        return true;
+
+      case 'GET_USERNAME':
+        // Extract logged-in username from Instagram DOM (no API calls needed)
+        (() => {
+          try {
+            // Method 1: Nav link with "Profile" text
+            const navLinks = [...document.querySelectorAll('a')];
+            const profileNavLink = navLinks.find(a => {
+              const children = a.querySelectorAll('div, span');
+              return [...children].some(s => s.textContent === 'Profile');
+            });
+            if (profileNavLink) {
+              const href = profileNavLink.getAttribute('href');
+              const match = href && href.match(/^\/([a-zA-Z0-9_.]+)\/$/);
+              if (match) {
+                sendResponse({ success: true, username: match[1] });
+                return;
+              }
+            }
+
+            // Method 2: Profile picture alt text "X's profile picture"
+            const profilePics = document.querySelectorAll('img[alt*="profile picture"]');
+            for (const img of profilePics) {
+              const match = img.alt.match(/^(.+?)'s profile picture$/);
+              if (match && img.closest('a[href]')) {
+                const link = img.closest('a[href]');
+                const hrefMatch = link.getAttribute('href').match(/^\/([a-zA-Z0-9_.]+)\/$/);
+                if (hrefMatch) {
+                  sendResponse({ success: true, username: hrefMatch[1] });
+                  return;
+                }
+              }
+            }
+
+            sendResponse({ success: false, error: 'Username not found in DOM' });
+          } catch (e) {
+            sendResponse({ success: false, error: e.message });
+          }
+        })();
         return true;
 
       case 'FETCH_INBOX':
@@ -1928,10 +1968,6 @@
     navigateToThread: navigateToThreadSPA,
     getCurrentThreadId: getCurrentThreadId,
     storePendingMessage: storePendingMessage,
-    // Add draft to unified queue for serial processing
-    queueForSend: (payload) => {
-      handleAutoApproveDraft(payload);
-    },
   };
 
 })();

@@ -464,6 +464,41 @@
   font-weight: 500;
 }
 
+.db-empty-subtext {
+  font-size: 11px;
+  color: #a0aec0;
+  margin-top: 4px;
+}
+
+.db-connect-btn {
+  margin-top: 14px;
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #E4405F, #C13584);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.db-connect-btn:hover {
+  opacity: 0.9;
+}
+
+.db-connect-btn:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.db-connect-error {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #e53e3e;
+  font-weight: 500;
+}
+
 /* Loading spinner */
 .db-loading-spinner {
   width: 32px;
@@ -520,6 +555,16 @@
 
 .db-status-dot.disconnected {
   background: #e53e3e;
+}
+
+.db-status-dot.syncing {
+  background: #ed8936;
+  animation: db-pulse 1s ease-in-out infinite;
+}
+
+@keyframes db-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .db-version {

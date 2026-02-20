@@ -1,0 +1,402 @@
+/* DialogBrain Popup — Clean Flat Design */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
+  width: 340px;
+  min-height: 200px;
+  padding: 20px;
+  background: #f7f8fa;
+  color: #4a5568;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+}
+
+.header .db-logo {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.header h1 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+/* Login Section */
+
+.login-section {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.login-section p {
+  font-size: 13px;
+  color: #718096;
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+
+.login-btn {
+  display: inline-block;
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.login-btn:hover {
+  opacity: 0.9;
+}
+
+.login-btn:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-form input {
+  width: 100%;
+  padding: 12px 16px;
+  background: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #2d3748;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.login-form input::placeholder {
+  color: #a0aec0;
+}
+
+.error-message {
+  color: #e53e3e;
+  font-size: 12px;
+  text-align: left;
+  min-height: 16px;
+  font-weight: 500;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+  color: #a0aec0;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.divider span {
+  padding: 0 14px;
+}
+
+.secondary-btn {
+  display: inline-block;
+  padding: 10px 20px;
+  background: #fff;
+  color: #667eea;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.secondary-btn:hover {
+  background: #f7f8fa;
+}
+
+/* Platform Cards */
+
+.platform-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.platform-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.platform-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #2d3748;
+}
+
+.platform-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-connected {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.status-disconnected {
+  background: #fed7d7;
+  color: #9b2c2c;
+}
+
+.status-syncing {
+  background: #fefcbf;
+  color: #744210;
+}
+
+.status-not-logged-in {
+  background: #e2e8f0;
+  color: #718096;
+}
+
+.platform-info {
+  font-size: 12px;
+  color: #718096;
+  font-weight: 500;
+}
+
+/* Sync Progress */
+
+.sync-progress {
+  margin-top: 6px;
+}
+
+.sync-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.sync-progress-fill {
+  height: 100%;
+  background: #ed8936;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.sync-progress-text {
+  font-size: 11px;
+  color: #a0aec0;
+  font-weight: 500;
+}
+
+.sync-progress-text.sync-done {
+  color: #48bb78;
+}
+
+/* Provider Badges */
+
+.provider-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.provider-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.provider-cookie { background: #dbeafe; color: #1e40af; }
+.provider-unipile { background: #ede9fe; color: #6d28d9; }
+.provider-official { background: #fce7f3; color: #be185d; }
+
+/* Cookie Hint */
+
+.cookie-hint {
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: #fffbeb;
+  border-radius: 8px;
+}
+
+.cookie-hint p {
+  font-size: 12px;
+  color: #92400e;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+/* Buttons */
+
+.open-inbox-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #E4405F, #C13584);
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.open-inbox-btn:hover {
+  opacity: 0.9;
+}
+
+.connect-ig-btn {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  margin-top: 10px;
+  background: linear-gradient(135deg, #E4405F, #C13584);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.connect-ig-btn:hover {
+  opacity: 0.9;
+}
+
+.connect-ig-btn:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.open-hint {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: #718096;
+}
+
+.disconnect-ig-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  margin-top: 10px;
+  background: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #718096;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.disconnect-ig-btn:hover {
+  color: #e53e3e;
+  background: #fee2e2;
+}
+
+/* Footer */
+
+.footer {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.footer a {
+  font-size: 12px;
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.footer a:hover {
+  color: #764ba2;
+}
+
+.logout-btn {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  margin-top: 12px;
+  background: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #718096;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+  color: #e53e3e;
+  background: #fee2e2;
+}

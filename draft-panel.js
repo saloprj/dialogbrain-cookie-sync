@@ -1,7 +1,7 @@
 
 (function() {
   const style = document.createElement('style');
-  style.textContent = "/* DialogBrain Draft Panel Styles */\n\n/* Reset for isolation */\n.db-draft-panel,\n.db-draft-panel * {\n  box-sizing: border-box;\n  margin: 0;\n  padding: 0;\n  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;\n}\n\n/* Panel container */\n.db-draft-panel {\n  position: fixed;\n  top: 10px;\n  right: 10px;\n  width: 360px;\n  max-height: 600px;\n  background: #f7f8fa;\n  border-radius: 16px;\n  z-index: 99999;\n  font-size: 12px;\n  color: #4a5568;\n  border: 1px solid rgba(0, 0, 0, 0.1);\n  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);\n  overflow: hidden;\n  display: flex;\n  flex-direction: column;\n}\n\n.db-draft-panel.minimized {\n  width: auto;\n  max-height: none;\n}\n\n/* Header */\n.db-panel-header {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  padding: 12px 16px;\n  background: #fff;\n  border-bottom: 1px solid #e2e8f0;\n}\n\n.db-panel-title {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  font-weight: 600;\n  color: #2d3748;\n  font-size: 13px;\n}\n\n.db-logo {\n  width: 28px;\n  height: 28px;\n  background: linear-gradient(135deg, #667eea, #764ba2);\n  border-radius: 8px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 10px;\n  color: #fff;\n  font-weight: 700;\n}\n\n.db-draft-count {\n  color: #667eea;\n  font-weight: 700;\n}\n\n.db-panel-controls {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n}\n\n.db-auto-toggle {\n  display: flex;\n  align-items: center;\n  gap: 4px;\n  background-color: rgba(128, 128, 128, 0.1);\n  border-radius: 9999px;\n  padding: 6px 12px;\n  cursor: pointer;\n  font-size: 12px;\n  font-weight: 500;\n  transition: background-color 0.2s;\n  border: none;\n  color: inherit;\n}\n\n.db-auto-toggle:hover:not(:disabled) {\n  background-color: rgba(128, 128, 128, 0.15);\n}\n\n.db-minimize-btn {\n  width: 28px;\n  height: 28px;\n  padding: 0;\n  border: none;\n  background: transparent;\n  cursor: pointer;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: #718096;\n  border-radius: 6px;\n}\n\n.db-minimize-btn:hover {\n  background: #edf2f7;\n}\n\n/* Content */\n.db-panel-content {\n  flex: 1;\n  overflow-y: auto;\n  max-height: 500px;\n  background: #f7f8fa;\n}\n\n.db-drafts-list {\n  padding: 12px;\n}\n\n/* Draft Card */\n.db-draft-card {\n  background: #fff;\n  border: 1px solid rgba(0,0,0,0.06);\n  border-radius: 10px;\n  padding: 10px 12px;\n  margin-bottom: 10px;\n  transition: all 0.2s ease;\n}\n\n.db-draft-card:last-child {\n  margin-bottom: 0;\n}\n\n/* Compact header */\n.db-draft-header {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 8px;\n}\n\n.db-draft-header-left {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex: 1;\n  min-width: 0;\n}\n\n.db-draft-title {\n  font-size: 12px;\n  font-weight: 600;\n  color: #2d3748;\n  cursor: pointer;\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  max-width: 140px;\n}\n\n.db-draft-title:hover {\n  color: #667eea;\n}\n\n.db-status-badge {\n  display: inline-flex;\n  align-items: center;\n  gap: 4px;\n  padding: 2px 8px;\n  border-radius: 12px;\n  font-size: 10px;\n  font-weight: 600;\n  background: #fefcbf;\n  color: #744210;\n  flex-shrink: 0;\n}\n\n.db-status-badge svg {\n  width: 10px;\n  height: 10px;\n}\n\n.db-draft-header-right {\n  display: flex;\n  align-items: center;\n  gap: 4px;\n}\n\n.db-draft-time {\n  font-size: 10px;\n  color: #a0aec0;\n  font-weight: 500;\n}\n\n/* Response block - blue style like web version */\n.db-draft-response {\n  background: #2F7AB6;\n  padding: 10px 12px;\n  border-radius: 10px;\n  margin-top: 8px;\n  font-size: 12px;\n  line-height: 1.5;\n  color: #ffffff;\n  position: relative;\n  box-shadow: 0 1px 2px rgba(16, 35, 47, 0.15);\n}\n\n.db-response-content {\n  display: flex;\n  align-items: flex-start;\n  justify-content: space-between;\n  gap: 8px;\n}\n\n.db-response-text-wrapper {\n  flex: 1;\n  min-width: 0;\n}\n\n.db-response-text {\n  margin: 0;\n  white-space: pre-wrap;\n  color: #ffffff;\n}\n\n.db-edited-badge {\n  font-size: 9px;\n  color: rgba(255, 255, 255, 0.8);\n  margin-top: 4px;\n  display: block;\n}\n\n/* Action buttons on response */\n.db-response-actions {\n  display: flex;\n  align-items: center;\n  gap: 2px;\n  flex-shrink: 0;\n}\n\n.db-action-btn {\n  width: 24px;\n  height: 24px;\n  padding: 0;\n  border: none;\n  background: transparent;\n  cursor: pointer;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: rgba(255, 255, 255, 0.7);\n  border-radius: 4px;\n  position: relative;\n}\n\n.db-action-btn:hover {\n  background: rgba(255, 255, 255, 0.15);\n  color: #ffffff;\n}\n\n.db-action-btn:disabled {\n  opacity: 0.4;\n  cursor: not-allowed;\n}\n\n.db-action-btn svg {\n  width: 14px;\n  height: 14px;\n}\n\n/* Edit mode */\n.db-edit-mode {\n  display: none;\n}\n\n.db-draft-card.editing .db-response-content {\n  display: none;\n}\n\n.db-draft-card.editing .db-edit-mode {\n  display: block;\n}\n\n.db-edit-textarea {\n  width: 100%;\n  min-height: 60px;\n  max-height: 120px;\n  padding: 8px 10px;\n  border: 1px solid #e2e8f0;\n  border-radius: 6px;\n  font-size: 12px;\n  font-family: inherit;\n  resize: vertical;\n  outline: none;\n  background: #ffffff !important;\n  color: #2d3748;\n}\n\n.db-edit-textarea:focus {\n  border-color: #667eea;\n}\n\n.db-edit-footer {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  margin-top: 6px;\n}\n\n.db-char-count {\n  font-size: 10px;\n  color: #a0aec0;\n}\n\n.db-edit-actions {\n  display: flex;\n  gap: 4px;\n}\n\n.db-edit-btn {\n  padding: 4px 10px;\n  border: none;\n  border-radius: 4px;\n  font-size: 11px;\n  font-weight: 500;\n  cursor: pointer;\n}\n\n.db-edit-btn-cancel {\n  background: transparent;\n  color: #718096;\n}\n\n.db-edit-btn-cancel:hover {\n  background: #f7f8fa;\n}\n\n.db-edit-btn-save {\n  background: transparent;\n  color: #667eea;\n}\n\n.db-edit-btn-save:hover {\n  background: #f7f8fa;\n}\n\n/* Improve mode - reuses edit mode styles */\n.db-improve-mode {\n  display: none;\n}\n\n.db-draft-card.improving .db-response-content {\n  display: none;\n}\n\n.db-draft-card.improving .db-improve-mode {\n  display: block;\n}\n\n/* Trigger message section - always visible on top */\n.db-draft-trigger {\n  display: block;\n  background: rgba(0, 0, 0, 0.03);\n  padding: 10px 12px;\n  border-radius: 10px;\n  margin-top: 8px;\n  font-size: 12px;\n  color: #4a5568;\n}\n\n.db-draft-trigger-text {\n  margin: 0;\n  white-space: pre-wrap;\n}\n\n\n/* Main action buttons */\n.db-draft-actions {\n  display: flex;\n  gap: 8px;\n  margin-top: 8px;\n  padding-top: 8px;\n  border-top: 1px solid #e2e8f0;\n}\n\n.db-btn {\n  flex: 1;\n  padding: 7px 12px;\n  border: none;\n  border-radius: 6px;\n  font-size: 11px;\n  font-weight: 600;\n  cursor: pointer;\n  transition: all 0.2s ease;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  gap: 4px;\n}\n\n.db-btn svg {\n  width: 12px;\n  height: 12px;\n}\n\n.db-btn-send {\n  background: #000000;\n  color: #fff;\n}\n\n.db-btn-send:hover {\n  background: #1a1a1a;\n}\n\n.db-btn-reject {\n  background: #fff;\n  color: #64748b;\n  border: 1px solid #e2e8f0;\n}\n\n.db-btn-reject:hover {\n  background: #f8fafc;\n  color: #475569;\n  border-color: #cbd5e1;\n}\n\n.db-btn:disabled {\n  opacity: 0.5;\n  cursor: not-allowed;\n}\n\n/* Spinner for loading */\n@keyframes db-spin {\n  to { transform: rotate(360deg); }\n}\n\n.db-spinner {\n  animation: db-spin 1s linear infinite;\n}\n\n/* Empty state */\n.db-empty-state {\n  padding: 50px 24px;\n  text-align: center;\n  color: #a0aec0;\n}\n\n.db-empty-icon {\n  font-size: 36px;\n  margin-bottom: 14px;\n  opacity: 0.6;\n}\n\n.db-empty-text {\n  font-size: 13px;\n  font-weight: 500;\n}\n\n/* Loading spinner */\n.db-loading-spinner {\n  width: 32px;\n  height: 32px;\n  border: 3px solid #e2e8f0;\n  border-top-color: #667eea;\n  border-radius: 50%;\n  margin: 0 auto 14px;\n  animation: db-spin 0.8s linear infinite;\n}\n\n@keyframes db-spin {\n  to {\n    transform: rotate(360deg);\n  }\n}\n\n/* Auto toggle loading/disabled state */\n.db-auto-toggle:disabled,\n.db-auto-toggle.loading {\n  opacity: 0.6;\n  cursor: not-allowed;\n}\n\n/* Footer */\n.db-panel-footer {\n  padding: 10px 16px;\n  background: #fff;\n  border-top: 1px solid #e2e8f0;\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  font-size: 11px;\n  color: #718096;\n}\n\n.db-status {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  font-weight: 500;\n}\n\n.db-status-dot {\n  width: 8px;\n  height: 8px;\n  border-radius: 50%;\n  background: #a0aec0;\n}\n\n.db-status-dot.connected {\n  background: #48bb78;\n}\n\n.db-status-dot.disconnected {\n  background: #e53e3e;\n}\n\n.db-version {\n  font-size: 10px;\n  color: #a0aec0;\n  font-weight: 400;\n}\n\n/* Queue sections */\n.db-queue-section {\n  margin-bottom: 4px;\n}\n\n.db-queue-section:last-child {\n  margin-bottom: 0;\n}\n\n.db-queue-header {\n  padding: 8px 12px 4px;\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n}\n\n.db-queue-title {\n  font-size: 10px;\n  font-weight: 600;\n  color: #718096;\n  text-transform: uppercase;\n  letter-spacing: 0.5px;\n}\n\n/* Status badge variants */\n.db-status-badge.db-status-pending {\n  background: #fefcbf;\n  color: #744210;\n}\n\n.db-status-badge.db-status-sending {\n  background: #e9d8fd;\n  color: #553c9a;\n}\n\n.db-status-badge.db-status-sent {\n  background: #c6f6d5;\n  color: #22543d;\n}\n\n.db-status-badge.db-status-approved {\n  background: #c6f6d5;\n  color: #22543d;\n}\n\n.db-status-badge.db-status-rejected {\n  background: #fed7d7;\n  color: #742a2a;\n}\n\n.db-status-badge.db-status-expired {\n  background: #e2e8f0;\n  color: #4a5568;\n}\n\n/* Sending status in card */\n.db-sending-status {\n  justify-content: center;\n  color: #553c9a;\n  font-size: 11px;\n  font-weight: 500;\n  border-top: none;\n  padding-top: 0;\n}\n\n.db-sending-status svg {\n  color: #7c3aed;\n}\n";
+  style.textContent = "/* DialogBrain Draft Panel Styles */\n\n/* Reset for isolation */\n.db-draft-panel,\n.db-draft-panel * {\n  box-sizing: border-box;\n  margin: 0;\n  padding: 0;\n  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;\n}\n\n/* Panel container */\n.db-draft-panel {\n  position: fixed;\n  top: 10px;\n  right: 10px;\n  width: 360px;\n  max-height: 600px;\n  background: #f7f8fa;\n  border-radius: 16px;\n  z-index: 99999;\n  font-size: 12px;\n  color: #4a5568;\n  border: 1px solid rgba(0, 0, 0, 0.1);\n  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);\n  overflow: hidden;\n  display: flex;\n  flex-direction: column;\n}\n\n.db-draft-panel.minimized {\n  width: auto;\n  max-height: none;\n}\n\n/* Header */\n.db-panel-header {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  padding: 12px 16px;\n  background: #fff;\n  border-bottom: 1px solid #e2e8f0;\n}\n\n.db-panel-title {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  font-weight: 600;\n  color: #2d3748;\n  font-size: 13px;\n}\n\n.db-logo {\n  width: 28px;\n  height: 28px;\n  background: linear-gradient(135deg, #667eea, #764ba2);\n  border-radius: 8px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 10px;\n  color: #fff;\n  font-weight: 700;\n}\n\n.db-draft-count {\n  color: #667eea;\n  font-weight: 700;\n}\n\n.db-panel-controls {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n}\n\n.db-auto-toggle {\n  display: flex;\n  align-items: center;\n  gap: 4px;\n  background-color: rgba(128, 128, 128, 0.1);\n  border-radius: 9999px;\n  padding: 6px 12px;\n  cursor: pointer;\n  font-size: 12px;\n  font-weight: 500;\n  transition: background-color 0.2s;\n  border: none;\n  color: inherit;\n}\n\n.db-auto-toggle:hover:not(:disabled) {\n  background-color: rgba(128, 128, 128, 0.15);\n}\n\n.db-minimize-btn {\n  width: 28px;\n  height: 28px;\n  padding: 0;\n  border: none;\n  background: transparent;\n  cursor: pointer;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: #718096;\n  border-radius: 6px;\n}\n\n.db-minimize-btn:hover {\n  background: #edf2f7;\n}\n\n/* Content */\n.db-panel-content {\n  flex: 1;\n  overflow-y: auto;\n  max-height: 500px;\n  background: #f7f8fa;\n}\n\n.db-drafts-list {\n  padding: 12px;\n}\n\n/* Draft Card */\n.db-draft-card {\n  background: #fff;\n  border: 1px solid rgba(0,0,0,0.06);\n  border-radius: 10px;\n  padding: 10px 12px;\n  margin-bottom: 10px;\n  transition: all 0.2s ease;\n}\n\n.db-draft-card:last-child {\n  margin-bottom: 0;\n}\n\n/* Compact header */\n.db-draft-header {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 8px;\n}\n\n.db-draft-header-left {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex: 1;\n  min-width: 0;\n}\n\n.db-draft-title {\n  font-size: 12px;\n  font-weight: 600;\n  color: #2d3748;\n  cursor: pointer;\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  max-width: 140px;\n}\n\n.db-draft-title:hover {\n  color: #667eea;\n}\n\n.db-status-badge {\n  display: inline-flex;\n  align-items: center;\n  gap: 4px;\n  padding: 2px 8px;\n  border-radius: 12px;\n  font-size: 10px;\n  font-weight: 600;\n  background: #fefcbf;\n  color: #744210;\n  flex-shrink: 0;\n}\n\n.db-status-badge svg {\n  width: 10px;\n  height: 10px;\n}\n\n.db-draft-header-right {\n  display: flex;\n  align-items: center;\n  gap: 4px;\n}\n\n.db-draft-time {\n  font-size: 10px;\n  color: #a0aec0;\n  font-weight: 500;\n}\n\n/* Response block - blue style like web version */\n.db-draft-response {\n  background: #2F7AB6;\n  padding: 10px 12px;\n  border-radius: 10px;\n  margin-top: 8px;\n  font-size: 12px;\n  line-height: 1.5;\n  color: #ffffff;\n  position: relative;\n  box-shadow: 0 1px 2px rgba(16, 35, 47, 0.15);\n}\n\n.db-response-content {\n  display: flex;\n  align-items: flex-start;\n  justify-content: space-between;\n  gap: 8px;\n}\n\n.db-response-text-wrapper {\n  flex: 1;\n  min-width: 0;\n}\n\n.db-response-text {\n  margin: 0;\n  white-space: pre-wrap;\n  color: #ffffff;\n}\n\n.db-edited-badge {\n  font-size: 9px;\n  color: rgba(255, 255, 255, 0.8);\n  margin-top: 4px;\n  display: block;\n}\n\n/* Action buttons on response */\n.db-response-actions {\n  display: flex;\n  align-items: center;\n  gap: 2px;\n  flex-shrink: 0;\n}\n\n.db-action-btn {\n  width: 24px;\n  height: 24px;\n  padding: 0;\n  border: none;\n  background: transparent;\n  cursor: pointer;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: rgba(255, 255, 255, 0.7);\n  border-radius: 4px;\n  position: relative;\n}\n\n.db-action-btn:hover {\n  background: rgba(255, 255, 255, 0.15);\n  color: #ffffff;\n}\n\n.db-action-btn:disabled {\n  opacity: 0.4;\n  cursor: not-allowed;\n}\n\n.db-action-btn svg {\n  width: 14px;\n  height: 14px;\n}\n\n/* Edit mode */\n.db-edit-mode {\n  display: none;\n}\n\n.db-draft-card.editing .db-response-content {\n  display: none;\n}\n\n.db-draft-card.editing .db-edit-mode {\n  display: block;\n}\n\n.db-edit-textarea {\n  width: 100%;\n  min-height: 60px;\n  max-height: 120px;\n  padding: 8px 10px;\n  border: 1px solid #e2e8f0;\n  border-radius: 6px;\n  font-size: 12px;\n  font-family: inherit;\n  resize: vertical;\n  outline: none;\n  background: #ffffff !important;\n  color: #2d3748;\n}\n\n.db-edit-textarea:focus {\n  border-color: #667eea;\n}\n\n.db-edit-footer {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  margin-top: 6px;\n}\n\n.db-char-count {\n  font-size: 10px;\n  color: #a0aec0;\n}\n\n.db-edit-actions {\n  display: flex;\n  gap: 4px;\n}\n\n.db-edit-btn {\n  padding: 4px 10px;\n  border: none;\n  border-radius: 4px;\n  font-size: 11px;\n  font-weight: 500;\n  cursor: pointer;\n}\n\n.db-edit-btn-cancel {\n  background: transparent;\n  color: #718096;\n}\n\n.db-edit-btn-cancel:hover {\n  background: #f7f8fa;\n}\n\n.db-edit-btn-save {\n  background: transparent;\n  color: #667eea;\n}\n\n.db-edit-btn-save:hover {\n  background: #f7f8fa;\n}\n\n/* Improve mode - reuses edit mode styles */\n.db-improve-mode {\n  display: none;\n}\n\n.db-draft-card.improving .db-response-content {\n  display: none;\n}\n\n.db-draft-card.improving .db-improve-mode {\n  display: block;\n}\n\n/* Trigger message section - always visible on top */\n.db-draft-trigger {\n  display: block;\n  background: rgba(0, 0, 0, 0.03);\n  padding: 10px 12px;\n  border-radius: 10px;\n  margin-top: 8px;\n  font-size: 12px;\n  color: #4a5568;\n}\n\n.db-draft-trigger-text {\n  margin: 0;\n  white-space: pre-wrap;\n}\n\n\n/* Main action buttons */\n.db-draft-actions {\n  display: flex;\n  gap: 8px;\n  margin-top: 8px;\n  padding-top: 8px;\n  border-top: 1px solid #e2e8f0;\n}\n\n.db-btn {\n  flex: 1;\n  padding: 7px 12px;\n  border: none;\n  border-radius: 6px;\n  font-size: 11px;\n  font-weight: 600;\n  cursor: pointer;\n  transition: all 0.2s ease;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  gap: 4px;\n}\n\n.db-btn svg {\n  width: 12px;\n  height: 12px;\n}\n\n.db-btn-send {\n  background: #000000;\n  color: #fff;\n}\n\n.db-btn-send:hover {\n  background: #1a1a1a;\n}\n\n.db-btn-reject {\n  background: #fff;\n  color: #64748b;\n  border: 1px solid #e2e8f0;\n}\n\n.db-btn-reject:hover {\n  background: #f8fafc;\n  color: #475569;\n  border-color: #cbd5e1;\n}\n\n.db-btn:disabled {\n  opacity: 0.5;\n  cursor: not-allowed;\n}\n\n/* Spinner for loading */\n@keyframes db-spin {\n  to { transform: rotate(360deg); }\n}\n\n.db-spinner {\n  animation: db-spin 1s linear infinite;\n}\n\n/* Empty state */\n.db-empty-state {\n  padding: 50px 24px;\n  text-align: center;\n  color: #a0aec0;\n}\n\n.db-empty-icon {\n  font-size: 36px;\n  margin-bottom: 14px;\n  opacity: 0.6;\n}\n\n.db-empty-text {\n  font-size: 13px;\n  font-weight: 500;\n}\n\n.db-empty-subtext {\n  font-size: 11px;\n  color: #a0aec0;\n  margin-top: 4px;\n}\n\n.db-connect-btn {\n  margin-top: 14px;\n  padding: 10px 24px;\n  background: linear-gradient(135deg, #E4405F, #C13584);\n  border: none;\n  border-radius: 8px;\n  font-size: 13px;\n  font-weight: 600;\n  color: #fff;\n  cursor: pointer;\n  transition: opacity 0.2s ease;\n}\n\n.db-connect-btn:hover {\n  opacity: 0.9;\n}\n\n.db-connect-btn:disabled {\n  background: #a0aec0;\n  cursor: not-allowed;\n}\n\n.db-connect-error {\n  margin-top: 8px;\n  font-size: 11px;\n  color: #e53e3e;\n  font-weight: 500;\n}\n\n/* Loading spinner */\n.db-loading-spinner {\n  width: 32px;\n  height: 32px;\n  border: 3px solid #e2e8f0;\n  border-top-color: #667eea;\n  border-radius: 50%;\n  margin: 0 auto 14px;\n  animation: db-spin 0.8s linear infinite;\n}\n\n@keyframes db-spin {\n  to {\n    transform: rotate(360deg);\n  }\n}\n\n/* Auto toggle loading/disabled state */\n.db-auto-toggle:disabled,\n.db-auto-toggle.loading {\n  opacity: 0.6;\n  cursor: not-allowed;\n}\n\n/* Footer */\n.db-panel-footer {\n  padding: 10px 16px;\n  background: #fff;\n  border-top: 1px solid #e2e8f0;\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  font-size: 11px;\n  color: #718096;\n}\n\n.db-status {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  font-weight: 500;\n}\n\n.db-status-dot {\n  width: 8px;\n  height: 8px;\n  border-radius: 50%;\n  background: #a0aec0;\n}\n\n.db-status-dot.connected {\n  background: #48bb78;\n}\n\n.db-status-dot.disconnected {\n  background: #e53e3e;\n}\n\n.db-status-dot.syncing {\n  background: #ed8936;\n  animation: db-pulse 1s ease-in-out infinite;\n}\n\n@keyframes db-pulse {\n  0%, 100% { opacity: 1; }\n  50% { opacity: 0.4; }\n}\n\n.db-version {\n  font-size: 10px;\n  color: #a0aec0;\n  font-weight: 400;\n}\n\n/* Queue sections */\n.db-queue-section {\n  margin-bottom: 4px;\n}\n\n.db-queue-section:last-child {\n  margin-bottom: 0;\n}\n\n.db-queue-header {\n  padding: 8px 12px 4px;\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n}\n\n.db-queue-title {\n  font-size: 10px;\n  font-weight: 600;\n  color: #718096;\n  text-transform: uppercase;\n  letter-spacing: 0.5px;\n}\n\n/* Status badge variants */\n.db-status-badge.db-status-pending {\n  background: #fefcbf;\n  color: #744210;\n}\n\n.db-status-badge.db-status-sending {\n  background: #e9d8fd;\n  color: #553c9a;\n}\n\n.db-status-badge.db-status-sent {\n  background: #c6f6d5;\n  color: #22543d;\n}\n\n.db-status-badge.db-status-approved {\n  background: #c6f6d5;\n  color: #22543d;\n}\n\n.db-status-badge.db-status-rejected {\n  background: #fed7d7;\n  color: #742a2a;\n}\n\n.db-status-badge.db-status-expired {\n  background: #e2e8f0;\n  color: #4a5568;\n}\n\n/* Sending status in card */\n.db-sending-status {\n  justify-content: center;\n  color: #553c9a;\n  font-size: 11px;\n  font-weight: 500;\n  border-top: none;\n  padding-top: 0;\n}\n\n.db-sending-status svg {\n  color: #7c3aed;\n}\n";
   document.head.appendChild(style);
 })();
 (function() {
@@ -7272,12 +7272,48 @@
     const [isMinimized, setIsMinimized] = reactExports.useState(false);
     const [isLoading, setIsLoading] = reactExports.useState(true);
     const [isTogglingAuto, setIsTogglingAuto] = reactExports.useState(false);
+    const [instagramConnected, setInstagramConnected] = reactExports.useState(null);
+    const [instagramUsername, setInstagramUsername] = reactExports.useState(null);
+    const [isConnecting, setIsConnecting] = reactExports.useState(false);
+    const [connectError, setConnectError] = reactExports.useState(null);
+    const [syncProgress, setSyncProgress] = reactExports.useState(null);
     const version = ((_c = (_b = (_a = chrome == null ? void 0 : chrome.runtime) == null ? void 0 : _a.getManifest) == null ? void 0 : _b.call(_a)) == null ? void 0 : _c.version) || "0.0.0";
+    reactExports.useEffect(() => {
+      var _a2, _b2;
+      try {
+        const navLinks = [...document.querySelectorAll("a")];
+        const profileLink = navLinks.find((a) => {
+          const children = a.querySelectorAll("div, span");
+          return [...children].some((s) => s.textContent === "Profile");
+        });
+        if (profileLink) {
+          const match = (_a2 = profileLink.getAttribute("href")) == null ? void 0 : _a2.match(/^\/([a-zA-Z0-9_.]+)\/$/);
+          if (match) {
+            setInstagramUsername(match[1]);
+            return;
+          }
+        }
+        const imgs = document.querySelectorAll('img[alt*="profile picture"]');
+        for (const img of imgs) {
+          const altMatch = img.alt.match(/^(.+?)'s profile picture$/);
+          if (altMatch) {
+            const link = img.closest("a[href]");
+            const hrefMatch = (_b2 = link == null ? void 0 : link.getAttribute("href")) == null ? void 0 : _b2.match(/^\/([a-zA-Z0-9_.]+)\/$/);
+            if (hrefMatch) {
+              setInstagramUsername(hrefMatch[1]);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[DraftPanel] Could not read username from DOM:", e);
+      }
+    }, []);
     const pendingSendsRef = reactExports.useRef([]);
     const isProcessingRef = reactExports.useRef(false);
     reactExports.useEffect(() => {
       const handleMessage = (message) => {
-        var _a2, _b2, _c2, _d, _e;
+        var _a2, _b2, _c2, _d, _e, _f;
         if (!message || message.target !== "instagram_content_script") return;
         if (message.source !== "dialogbrain_ws") return;
         console.log("[DraftPanel] Received event:", message.type);
@@ -7362,8 +7398,19 @@
               });
             }
             break;
+          case "SYNC_STATE_CHANGED":
+            setInstagramConnected(!!((_e = message.instagram) == null ? void 0 : _e.accountId));
+            break;
+          case "SYNC_PROGRESS":
+            if (message.status === "done" || message.status === "error") {
+              setSyncProgress({ status: message.status, current: message.current || 0, total: message.total || 0, messagesSynced: message.messagesSynced || 0 });
+              setTimeout(() => setSyncProgress(null), 3e3);
+            } else if (message.status === "syncing") {
+              setSyncProgress({ status: "syncing", current: message.current || 0, total: message.total || 0, messagesSynced: message.messagesSynced || 0 });
+            }
+            break;
           case "DRAFTS_LOADED":
-            if ((_e = message.payload) == null ? void 0 : _e.drafts) {
+            if ((_f = message.payload) == null ? void 0 : _f.drafts) {
               const draftMap = /* @__PURE__ */ new Map();
               message.payload.drafts.forEach((d) => {
                 draftMap.set(d.id, {
@@ -7395,6 +7442,7 @@
         if (response) {
           setWsConnected(response.wsConnected || false);
           setAutoMode(response.autoMode || false);
+          setInstagramConnected(!!response.instagramAccountId);
           if (response.drafts) {
             const draftMap = /* @__PURE__ */ new Map();
             response.drafts.forEach((d) => {
@@ -7426,8 +7474,16 @@
       const instagramThreadId = threadIdMatch ? threadIdMatch[1] : draft.threadId;
       const messageText = editedText || draft.editedText || draft.responseText;
       const api = window.__dialogbrain_api;
-      if (!(api == null ? void 0 : api.queueForSend)) {
+      if (!api) {
         console.error("[DraftPanel] Vanilla content script API not available");
+        setDrafts((prev) => {
+          const next = new Map(prev);
+          const d = next.get(draftId);
+          if (d) {
+            next.set(draftId, { ...d, status: "pending" });
+          }
+          return next;
+        });
         throw new Error("Content script API not available");
       }
       try {
@@ -7441,25 +7497,41 @@
             if ((response == null ? void 0 : response.success) === false) {
               reject(new Error((response == null ? void 0 : response.error) || "Failed to queue draft"));
             } else {
-              console.log(`[DraftPanel] Draft ${draftId} queued in backend (status -> approved)`);
+              console.log(`[DraftPanel] Draft ${draftId} queued (status -> approved)`);
               resolve();
             }
           });
         });
-        setDrafts((prev) => {
-          const next = new Map(prev);
-          const d = next.get(draftId);
-          if (d) {
-            next.set(draftId, { ...d, status: "approved" });
+        const currentThread = api.getCurrentThreadId();
+        if (currentThread !== String(instagramThreadId)) {
+          console.log(`[DraftPanel] Navigating to thread: ${instagramThreadId}`);
+          const spaSuccess = await api.navigateToThread(instagramThreadId);
+          if (!spaSuccess) {
+            api.storePendingMessage(instagramThreadId, messageText);
+            localStorage.setItem("dialogbrain_pending_draft_id", String(draftId));
+            location.href = `https://www.instagram.com/direct/t/${instagramThreadId}/`;
+            return;
           }
-          return next;
-        });
-        console.log(`[DraftPanel] Adding draft ${draftId} to unified queue`);
-        api.queueForSend({
-          draftId,
-          threadId: instagramThreadId,
-          channelRef: draft.channelRef,
-          text: messageText
+          await new Promise((resolve) => setTimeout(resolve, 1e3));
+        }
+        const sendResult = await api.sendMessageViaDom(instagramThreadId, messageText);
+        if (!sendResult.success) {
+          throw new Error(sendResult.error || "Failed to send message");
+        }
+        return new Promise((resolve, reject) => {
+          chrome.runtime.sendMessage({
+            type: "APPROVE_DRAFT",
+            draftId,
+            alreadySent: true
+          }, (response) => {
+            console.log(`[DraftPanel] Draft ${draftId} sent (status -> sent)`);
+            setDrafts((prev) => {
+              const next = new Map(prev);
+              next.delete(draftId);
+              return next;
+            });
+            resolve();
+          });
         });
       } catch (error) {
         setDrafts((prev) => {
@@ -7594,6 +7666,22 @@
         });
       });
     }, []);
+    const handleConnectInstagram = reactExports.useCallback(async () => {
+      setIsConnecting(true);
+      setConnectError(null);
+      chrome.runtime.sendMessage({ type: "MANUAL_SYNC", platform: "instagram" }, (result) => {
+        setIsConnecting(false);
+        if (chrome.runtime.lastError) {
+          setConnectError(chrome.runtime.lastError.message || "Connection failed");
+          return;
+        }
+        if (result == null ? void 0 : result.success) {
+          setInstagramConnected(true);
+        } else {
+          setConnectError((result == null ? void 0 : result.error) || "Failed to connect Instagram");
+        }
+      });
+    }, []);
     const toggleAutoMode = reactExports.useCallback(async () => {
       if (isTogglingAuto) return;
       const newMode = !autoMode;
@@ -7671,6 +7759,20 @@
       !isMinimized && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "db-panel-content", children: isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "db-empty-state", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "db-loading-spinner" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "db-empty-text", children: "Loading drafts..." })
+      ] }) : instagramConnected === false ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "db-empty-state", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "db-empty-icon", children: "🔗" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "db-empty-text", children: "Instagram not connected" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "db-empty-subtext", children: "Connect your account to enable AI auto-replies" }),
+        connectError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "db-connect-error", children: connectError }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            className: "db-connect-btn",
+            onClick: handleConnectInstagram,
+            disabled: isConnecting,
+            children: isConnecting ? "Connecting..." : instagramUsername ? `Connect @${instagramUsername}` : "Connect Instagram"
+          }
+        )
       ] }) : totalCount === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "db-empty-state", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "db-empty-icon", children: "💬" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "db-empty-text", children: "No pending drafts" })
@@ -7727,9 +7829,27 @@
         ] })
       ] }) }),
       !isMinimized && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "db-panel-footer", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "db-status", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `db-status-dot ${wsConnected ? "connected" : "disconnected"}` }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: wsConnected ? "Connected" : "Disconnected" })
+        syncProgress && syncProgress.status === "syncing" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "db-status", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "db-status-dot syncing" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+            "Syncing ",
+            syncProgress.current,
+            "/",
+            syncProgress.total,
+            " · ",
+            syncProgress.messagesSynced,
+            " synced"
+          ] })
+        ] }) : syncProgress && syncProgress.status === "done" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "db-status", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "db-status-dot connected" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+            "Sync complete · ",
+            syncProgress.messagesSynced,
+            " messages synced"
+          ] })
+        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "db-status", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `db-status-dot ${instagramConnected && wsConnected ? "connected" : "disconnected"}` }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: !instagramConnected ? "Not connected" : wsConnected ? "Connected" : "Disconnected" })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "db-version", children: [
           "v",

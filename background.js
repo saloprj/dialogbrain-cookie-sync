@@ -39,6 +39,10 @@ const CONFIG = {
 // Cached settings (loaded from storage)
 let cachedSettings = null;
 
+// In-memory cache for Instagram account (source of truth = server)
+// Populated by fetchInstagramAccount(), cleared on disconnect/logout
+let currentInstagramAccount = null; // { id, provider, externalId, displayName }
+
 // Get settings from storage (with caching)
 // NOTE: Does NOT cache auth_token - that's fetched separately each time
 async function getSettings() {
@@ -161,6 +165,75 @@ function getApiUrlSync() {
   }
   // Default to dev for now (will be updated by async call)
   return CONFIG.DEV_API_URL;
+}
+
+/**
+ * Fetch the Instagram provider from the backend and cache it.
+ * Returns 'cookie', 'unipile', 'official_api', or null (no account).
+ */
+async function fetchInstagramAccount() {
+  const authToken = await getAuthToken();
+  if (!authToken) return null;
+
+  try {
+    const apiUrl = await getApiUrl();
+    const response = await fetchWithTimeout(`${apiUrl}/api/channels/instagram/accounts`, {
+      headers: { 'Authorization': `Bearer ${authToken}` },
+    }, 10000);
+
+    if (!response.ok) {
+      console.warn(`[DialogBrain] Failed to fetch Instagram accounts: HTTP ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    if (!data.accounts?.length) {
+      currentInstagramAccount = null;
+      console.log('[DialogBrain] No Instagram account found');
+      return null;
+    }
+
+    // Match by current browser's ds_user_id cookie, then fallback
+    const cookies = await getInstagramCookies();
+    const accounts = data.accounts;
+
+    let matched = null;
+    if (cookies.ds_user_id) {
+      // Strict match by ds_user_id — if present but no match, do NOT fall back.
+      // This prevents syncing cookies from one IG account onto another.
+      matched = accounts.find(a => a.external_id === cookies.ds_user_id);
+      if (!matched) {
+        console.log(`[DialogBrain] No account matches ds_user_id=${cookies.ds_user_id}, user must click Connect`);
+        currentInstagramAccount = null;
+        return null;
+      }
+    } else {
+      // No ds_user_id cookie — fallback to provider match
+      matched = accounts.find(a => a.metadata?.provider === 'cookie');
+      if (!matched) {
+        matched = accounts[0];
+      }
+    }
+
+    currentInstagramAccount = {
+      id: matched.id,
+      provider: matched.metadata?.provider || 'unknown',
+      externalId: matched.external_id,
+      displayName: matched.display_name,
+      username: matched.metadata?.username || matched.display_name || null,
+    };
+    console.log(`[DialogBrain] Instagram account cached: id=${matched.id}, provider=${currentInstagramAccount.provider}, ext=${matched.external_id}`);
+    return currentInstagramAccount;
+  } catch (error) {
+    console.warn('[DialogBrain] Error fetching Instagram account:', error.message);
+    return null;
+  }
+}
+
+// Backward compat alias
+async function fetchInstagramProvider() {
+  const account = await fetchInstagramAccount();
+  return account?.provider || null;
 }
 
 // Cookies we care about per platform
@@ -555,9 +628,9 @@ class ExtensionWebSocket {
     // Phase 3: Validate channel_ref for Instagram as safety net
     // Backend already handles this correctly, but validate client-side too
     if (channelType === 'instagram') {
-      // Instagram channel_ref should be "instagram:{17-digit-thread-id}"
+      // Instagram channel_ref should be "instagram:{numeric-thread-id}" (thread_v2_id or native)
       const validChannelRef = payload.channel_ref &&
-        /^instagram:\d{15,20}$/.test(payload.channel_ref);
+        /^instagram:\d{10,20}$/.test(payload.channel_ref);
 
       if (!validChannelRef) {
         console.warn(`[DialogBrain WS] Invalid channel_ref for Instagram draft: ${payload.channel_ref}, fetching fresh from API`);
@@ -1264,9 +1337,8 @@ async function notifyBackendModeChange(mode) {
     if (!authToken) return;
 
     const apiUrl = await getApiUrl();
-    const storage = await chrome.storage.local.get(['instagram_account_id']);
 
-    if (!storage.instagram_account_id) return;
+    if (!currentInstagramAccount?.id) return;
 
     await fetch(`${apiUrl}/api/channels/instagram/hybrid/mode`, {
       method: 'POST',
@@ -1275,7 +1347,7 @@ async function notifyBackendModeChange(mode) {
         'Authorization': `Bearer ${authToken}`,
       },
       body: JSON.stringify({
-        account_id: storage.instagram_account_id,
+        account_id: currentInstagramAccount.id,
         mode: mode,
         timestamp: Date.now(),
         tabs_count: instagramHybrid.tabs.size,
@@ -1451,6 +1523,12 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
           payload: { connected: extensionWS.isConnected() },
           timestamp: Date.now(),
         }).catch(() => { /* Content script may not be ready yet */ });
+
+        // Process any pending auto-send drafts now that Instagram tab is available
+        if (draftState.autoSendQueue.length > 0) {
+          console.log(`[DialogBrain Hybrid] Instagram tab ready, processing ${draftState.autoSendQueue.length} pending auto-sends`);
+          extensionWS._processAutoSendQueue();
+        }
       }
     } else {
       const tabInfo = instagramHybrid.tabs.get(tabId);
@@ -1503,11 +1581,40 @@ chrome.cookies.onChanged.addListener((changeInfo) => {
   if (cookie.domain.includes('instagram.com') && INSTAGRAM_COOKIES.includes(cookie.name)) {
     console.log(`[DialogBrain] Instagram cookie change detected: ${cookie.name} (${removed ? 'removed' : 'updated'})`);
 
+    // Detect account switch via ds_user_id cookie change
+    if (cookie.name === 'ds_user_id' && !removed) {
+      const newDsUserId = cookie.value;
+      const oldDsUserId = currentInstagramAccount?.externalId;
+      if (newDsUserId && oldDsUserId && newDsUserId !== oldDsUserId) {
+        console.log(`[DialogBrain] Instagram account switch detected via cookie: ${oldDsUserId} -> ${newDsUserId}`);
+        currentInstagramAccount = null;
+        instagramHybrid.seenMessages.clear();
+        // Broadcast so popup updates immediately
+        broadcastSyncState();
+      }
+    }
+
     // Debounce: wait for multiple cookie changes to settle
     if (pendingSyncs.instagram) {
       clearTimeout(pendingSyncs.instagram);
     }
-    pendingSyncs.instagram = setTimeout(() => {
+    pendingSyncs.instagram = setTimeout(async () => {
+      // Try to find matching account in DB for current ds_user_id
+      if (!currentInstagramAccount?.id) {
+        const account = await fetchInstagramAccount();
+        if (account) {
+          console.log(`[DialogBrain] Auto-connected existing Instagram account: id=${account.id}, ext=${account.externalId}`);
+          broadcastSyncState();
+        } else {
+          console.log('[DialogBrain] No existing Instagram account for current session, user must click Connect');
+          return;
+        }
+      }
+      // Skip auto-sync if user connected via non-cookie provider
+      if (currentInstagramAccount.provider && currentInstagramAccount.provider !== 'cookie') {
+        console.log(`[DialogBrain] Skipping Instagram auto-sync: provider=${currentInstagramAccount.provider} (not cookie)`);
+        return;
+      }
       syncInstagramCookies();
     }, CONFIG.DEBOUNCE_MS);
   }
@@ -1533,10 +1640,12 @@ chrome.cookies.onChanged.addListener((changeInfo) => {
 // Create alarm for periodic sync
 chrome.alarms.create('fallbackSync', { periodInMinutes: CONFIG.FALLBACK_SYNC_HOURS * 60 });
 
-chrome.alarms.onAlarm.addListener((alarm) => {
+chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'fallbackSync') {
     console.log('[DialogBrain] Running fallback periodic sync');
-    syncInstagramCookies();
+    if (currentInstagramAccount?.id) {
+      syncInstagramCookies();
+    }
     syncLinkedInCookies();
   }
 });
@@ -1575,52 +1684,29 @@ async function verifyInstagramSession() {
       return { valid: false, error: 'No sessionid cookie' };
     }
 
-    // Build Cookie header manually - credentials: 'include' doesn't work from service worker
-    const cookieHeader = buildCookieHeader(cookies);
-
-    // Call Instagram's private API from browser context (with timeout)
-    const response = await fetchWithTimeout('https://i.instagram.com/api/v1/accounts/current_user/', {
-      method: 'GET',
-      headers: {
-        'X-IG-App-ID': '936619743392459',
-        'X-ASBD-ID': '129477',
-        'X-IG-WWW-Claim': '0',
-        'X-CSRFToken': cookies.csrftoken || '',
-        'Cookie': cookieHeader,
-        'Accept': '*/*',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      credentials: 'omit', // Don't rely on automatic cookie handling
-    }, 10000); // 10 second timeout for Instagram API
-
-    if (response.status === 200) {
-      const data = await response.json();
-
-      if (data.status === 'fail') {
-        if (data.message?.includes('login_required')) {
-          return { valid: false, error: 'Session expired' };
+    // Method 1 (preferred): Ask content script to read username from DOM
+    // This is instant, no API calls, no rate limits
+    try {
+      const tabId = await findInstagramTab();
+      if (tabId) {
+        const result = await sendToContentScript(tabId, { type: 'GET_USERNAME' });
+        if (result && result.success && result.username) {
+          console.log(`[DialogBrain] Got username from content script: ${result.username}`);
+          return {
+            valid: true,
+            user_id: cookies.ds_user_id || '',
+            username: result.username,
+          };
         }
-        if (data.message?.includes('checkpoint_required')) {
-          return { valid: false, error: 'Checkpoint required' };
-        }
-        return { valid: false, error: data.message || 'Unknown error' };
+        console.log('[DialogBrain] Content script could not get username:', result?.error);
+      } else {
+        console.log('[DialogBrain] No Instagram tab open for content script fallback');
       }
-
-      const user = data.user || {};
-      return {
-        valid: true,
-        user_id: String(user.pk || user.pk_id || cookies.ds_user_id || ''),
-        username: user.username || '',
-        full_name: user.full_name || '',
-        profile_pic_url: user.profile_pic_url || '',
-      };
-    } else if (response.status === 401 || response.status === 403) {
-      return { valid: false, error: 'Session expired' };
-    } else if (response.status === 429) {
-      return { valid: false, error: 'Rate limited - try again later' };
-    } else {
-      return { valid: false, error: `HTTP ${response.status}` };
+    } catch (e) {
+      console.log(`[DialogBrain] Content script username fetch failed: ${e.message}`);
     }
+
+    return { valid: false, error: 'No Instagram tab open - cannot get username' };
   } catch (error) {
     console.error('[DialogBrain] Instagram verification error:', error.message);
     return { valid: false, error: error.message };
@@ -1634,6 +1720,8 @@ async function verifyInstagramSession() {
  * @param {boolean} options.useUnipile - Use Unipile for session management (overrides settings)
  * @param {boolean} options.forceExtensionVerify - Force extension-direct verification (default: false)
  */
+const SYNC_RETRY_DELAYS = [5000, 15000, 30000]; // 5s, 15s, 30s
+
 async function syncInstagramCookies(options = {}) {
   // Prevent concurrent syncs - critical to avoid creating duplicate Unipile accounts
   if (syncStatus.instagram.syncing) {
@@ -1663,9 +1751,6 @@ async function syncInstagramCookies(options = {}) {
     return { success: false, error: 'Not logged in' };
   }
 
-  // Get account ID separately
-  const storage = await chrome.storage.local.get(['instagram_account_id']);
-
   // Get cookies
   const cookies = await getInstagramCookies();
 
@@ -1673,6 +1758,22 @@ async function syncInstagramCookies(options = {}) {
     console.log('[DialogBrain] No Instagram session - user not logged in');
     syncStatus.instagram = { syncing: false, lastSync: null, error: 'Not logged in to Instagram', startedAt: null };
     return { success: false, error: 'Not logged in to Instagram' };
+  }
+
+  // Find matching account on server (source of truth)
+  let existingAccountId = currentInstagramAccount?.id || null;
+  if (!existingAccountId) {
+    // Cache miss — fetch from server
+    const account = await fetchInstagramAccount();
+    existingAccountId = account?.id || null;
+  }
+
+  // Block account creation unless explicitly allowed by user action
+  const allowCreate = options.allowCreate || false;
+  if (!existingAccountId && !allowCreate) {
+    console.log('[DialogBrain] No account connected and allowCreate=false, skipping (user must click Connect)');
+    syncStatus.instagram = { syncing: false, lastSync: null, error: null, startedAt: null };
+    return { success: false, error: 'No account connected', needsConnect: true };
   }
 
   syncStatus.instagram.syncing = true;
@@ -1684,17 +1785,32 @@ async function syncInstagramCookies(options = {}) {
     let requestBody;
 
     // If we have an existing account ID, use sync endpoint
-    if (storage.instagram_account_id) {
-      endpoint = `${apiUrl}/api/channels/instagram/accounts/${storage.instagram_account_id}/sync-cookie`;
+    if (existingAccountId) {
+      endpoint = `${apiUrl}/api/channels/instagram/accounts/${existingAccountId}/sync-cookie`;
 
-      // Direct mode: skip verification, use ds_user_id from cookies
-      // MV3 service workers can't make authenticated requests to Instagram API
+      // Always try to get username via Instagram API for existing accounts
+      let verifiedUsername = '';
+      try {
+        console.log('[DialogBrain] Calling verifyInstagramSession for username...');
+        const sessionInfo = await verifyInstagramSession();
+        console.log('[DialogBrain] verifyInstagramSession result:', JSON.stringify(sessionInfo));
+        if (sessionInfo.valid && sessionInfo.username) {
+          verifiedUsername = sessionInfo.username;
+          console.log(`[DialogBrain] Verified username: ${verifiedUsername}`);
+        } else {
+          console.warn('[DialogBrain] Session verify returned no username:', sessionInfo.error || 'no username field');
+        }
+      } catch (e) {
+        console.warn('[DialogBrain] Could not verify session for username:', e.message);
+      }
+
       if (!useUnipile) {
         console.log('[DialogBrain] Syncing existing account (direct mode)');
         requestBody = {
           ...cookies,
           extension_verified: true,
           verified_user_id: cookies.ds_user_id,
+          verified_username: verifiedUsername || undefined,
         };
       } else {
         // Using Unipile - let backend handle verification
@@ -1702,6 +1818,7 @@ async function syncInstagramCookies(options = {}) {
         requestBody = {
           ...cookies,
           use_unipile: true,
+          verified_username: verifiedUsername || undefined,
         };
       }
     } else {
@@ -1725,13 +1842,24 @@ async function syncInstagramCookies(options = {}) {
           return { success: false, error: 'No ds_user_id cookie' };
         }
 
+        // Try to get username via Instagram API
+        let verifiedUsername = '';
+        try {
+          const sessionInfo = await verifyInstagramSession();
+          if (sessionInfo.valid && sessionInfo.username) {
+            verifiedUsername = sessionInfo.username;
+            console.log(`[DialogBrain] Verified username: ${verifiedUsername}`);
+          }
+        } catch (e) {
+          console.warn('[DialogBrain] Could not verify session for username:', e.message);
+        }
         requestBody = {
           ...cookies,
           use_unipile: false,
           verified_user_id: cookies.ds_user_id,
-          // Username will be fetched by backend or content script later
+          verified_username: verifiedUsername || undefined,
         };
-        console.log(`[DialogBrain] Direct mode: using ds_user_id=${cookies.ds_user_id}`);
+        console.log(`[DialogBrain] Direct mode: using ds_user_id=${cookies.ds_user_id}, username=${verifiedUsername}`);
       } else {
         // APPROACH 1: Use Unipile (default)
         console.log('[DialogBrain] Using Unipile for session management');
@@ -1754,6 +1882,15 @@ async function syncInstagramCookies(options = {}) {
     if (response.ok) {
       const data = await response.json();
 
+      // Handle account switch detected by backend
+      if (data.status === 'account_changed' || data.reason === 'account_changed') {
+        console.log(`[DialogBrain] Backend detected Instagram account switch, clearing cache and retrying`);
+        currentInstagramAccount = null;
+        syncStatus.instagram.syncing = false;
+        syncStatus.instagram.startedAt = null;
+        return await syncInstagramCookies(options);
+      }
+
       // Check if backend returned an error status
       if (data.status === 'error' || data.status === 'session_expired' || data.status === 'checkpoint_required') {
         console.log(`[DialogBrain] Instagram sync returned status: ${data.status}, message: ${data.message}`);
@@ -1763,7 +1900,7 @@ async function syncInstagramCookies(options = {}) {
         const isUnipileBlocked = data.message?.includes('TEST MODE') || data.message?.includes('disabled');
 
         // If Unipile failed for other reasons, try extension-direct as fallback
-        if (useUnipile && !forceExtensionVerify && !storage.instagram_account_id && !isUnipileBlocked) {
+        if (useUnipile && !forceExtensionVerify && !existingAccountId && !isUnipileBlocked) {
           console.log('[DialogBrain] Unipile failed, trying extension-direct verification...');
           return await syncInstagramCookies({ useUnipile: false, forceExtensionVerify: true });
         }
@@ -1780,12 +1917,6 @@ async function syncInstagramCookies(options = {}) {
         return { success: false, error: data.message || data.status };
       }
 
-      // Store/update account ID - always update if present to handle reconnections
-      if (data.account_id) {
-        await chrome.storage.local.set({ instagram_account_id: data.account_id });
-        console.log('[DialogBrain] Instagram account ID stored:', data.account_id);
-      }
-
       console.log('[DialogBrain] Instagram cookies synced successfully');
       syncStatus.instagram = {
         syncing: false,
@@ -1795,6 +1926,14 @@ async function syncInstagramCookies(options = {}) {
         username: data.username,
         startedAt: null,
       };
+
+      // Refresh in-memory account cache (must complete before returning so popup sees it)
+      await fetchInstagramAccount().catch(e => console.warn('[DialogBrain] Failed to refresh account after sync:', e.message));
+
+      // Trigger initial message sync now that account exists
+      // (CONTENT_SCRIPT_READY may have fired before account was created)
+      syncInstagramMessages().catch(e => console.warn('[DialogBrain] Post-connect message sync error:', e.message));
+
       return { success: true, status: data.status, username: data.username };
     } else {
       const errorText = await response.text();
@@ -1813,17 +1952,33 @@ async function syncInstagramCookies(options = {}) {
         return { success: false, error: 'Auth expired - please reconnect' };
       }
 
-      // If 404 and we have a stored account ID, it's stale - clear it and retry
-      if (response.status === 404 && storage.instagram_account_id) {
-        console.log('[DialogBrain] Account not found (404), clearing stale account ID and retrying...');
-        await chrome.storage.local.remove(['instagram_account_id']);
-        return await syncInstagramCookies(options); // Retry with connect endpoint
+      // If 404, account was deleted - clear cache and stop (do NOT retry).
+      if (response.status === 404 && existingAccountId) {
+        console.log('[DialogBrain] Account deleted or not found (404), clearing cache');
+        currentInstagramAccount = null;
+        syncStatus.instagram = {
+          syncing: false,
+          lastSync: null,
+          error: 'Account disconnected',
+          startedAt: null,
+        };
+        return { success: false, error: 'Account disconnected - reconnect via settings' };
       }
 
       // If Unipile approach failed with 4xx, try extension-direct
-      if (useUnipile && !forceExtensionVerify && response.status >= 400 && response.status < 500 && !storage.instagram_account_id) {
+      if (useUnipile && !forceExtensionVerify && response.status >= 400 && response.status < 500 && !existingAccountId) {
         console.log('[DialogBrain] Unipile request failed, trying extension-direct...');
         return await syncInstagramCookies({ useUnipile: false, forceExtensionVerify: true });
+      }
+
+      // Retry on 5xx (server may be restarting/deploying)
+      const retryCount = options._retryCount || 0;
+      if (response.status >= 500 && retryCount < SYNC_RETRY_DELAYS.length) {
+        const delay = SYNC_RETRY_DELAYS[retryCount];
+        console.log(`[DialogBrain] Server error ${response.status}, retrying in ${delay / 1000}s (attempt ${retryCount + 1}/${SYNC_RETRY_DELAYS.length})`);
+        syncStatus.instagram.syncing = false;
+        await new Promise(r => setTimeout(r, delay));
+        return await syncInstagramCookies({ ...options, _retryCount: retryCount + 1 });
       }
 
       syncStatus.instagram = {
@@ -1835,7 +1990,18 @@ async function syncInstagramCookies(options = {}) {
       return { success: false, error: `HTTP ${response.status}` };
     }
   } catch (error) {
-    console.error('[DialogBrain] Instagram sync error:', error.message); // Don't log full error (may contain cookies)
+    console.error('[DialogBrain] Instagram sync error:', error.message);
+
+    // Retry on network errors (server unreachable, timeout, etc.)
+    const retryCount = options._retryCount || 0;
+    if (retryCount < SYNC_RETRY_DELAYS.length) {
+      const delay = SYNC_RETRY_DELAYS[retryCount];
+      console.log(`[DialogBrain] Network error, retrying in ${delay / 1000}s (attempt ${retryCount + 1}/${SYNC_RETRY_DELAYS.length})`);
+      syncStatus.instagram.syncing = false;
+      await new Promise(r => setTimeout(r, delay));
+      return await syncInstagramCookies({ ...options, _retryCount: retryCount + 1 });
+    }
+
     syncStatus.instagram = {
       syncing: false,
       lastSync: null,
@@ -1926,13 +2092,15 @@ async function syncLinkedInCookies() {
       }
 
       console.log('[DialogBrain] LinkedIn cookies synced successfully');
+      const liLastSync = new Date().toISOString();
       syncStatus.linkedin = {
         syncing: false,
-        lastSync: new Date().toISOString(),
+        lastSync: liLastSync,
         error: null,
         status: data.status || 'connected',
         startedAt: null,
       };
+      chrome.storage.local.set({ linkedin_last_sync: liLastSync });
     } else {
       console.error(`[DialogBrain] LinkedIn sync failed: ${response.status}`);
 
@@ -2014,6 +2182,11 @@ async function handleInstagramContentScriptMessage(message, sender, sendResponse
       // Always load drafts when content script becomes ready (for draft panel)
       console.log('[DialogBrain Hybrid] Content script ready, loading drafts via REST API');
       loadDraftsViaRestApi().catch(e => console.warn('[DialogBrain Hybrid] Failed to load drafts:', e.message));
+      // Process any pending auto-send drafts now that Instagram tab is ready
+      if (draftState.autoSendQueue.length > 0) {
+        console.log(`[DialogBrain Hybrid] Content script ready, processing ${draftState.autoSendQueue.length} pending auto-sends`);
+        extensionWS._processAutoSendQueue();
+      }
       sendResponse({ success: true });
       break;
 
@@ -2061,11 +2234,18 @@ async function handleInstagramContentScriptMessage(message, sender, sendResponse
 
     case 'TRIGGER_INBOX_SYNC':
       // Content script detected DM activity but couldn't parse MQTT
-      // Trigger a fetch-based sync to get new messages
-      console.log('[DialogBrain Hybrid] Triggering inbox sync due to:', payload?.reason);
-      syncInstagramMessages().catch(e => {
-        console.warn('[DialogBrain Hybrid] Inbox sync failed:', e.message);
-      });
+      // Debounce to avoid rapid repeated syncs from multiple WS events
+      console.log('[DialogBrain Hybrid] Inbox sync requested due to:', payload?.reason);
+      if (triggerInboxSyncTimer) {
+        clearTimeout(triggerInboxSyncTimer);
+      }
+      triggerInboxSyncTimer = setTimeout(() => {
+        triggerInboxSyncTimer = null;
+        console.log('[DialogBrain Hybrid] Triggering debounced inbox sync');
+        syncInstagramMessages().catch(e => {
+          console.warn('[DialogBrain Hybrid] Inbox sync failed:', e.message);
+        });
+      }, TRIGGER_INBOX_SYNC_DEBOUNCE_MS);
       sendResponse({ success: true });
       break;
 
@@ -2181,6 +2361,10 @@ let domActivitySyncTimer = null;
 // Track last initial sync to avoid duplicate syncs
 let lastInitialSyncTime = 0;
 const INITIAL_SYNC_COOLDOWN_MS = 10000; // 10 seconds between initial syncs
+
+// Debounce timer for TRIGGER_INBOX_SYNC (DM activity events can fire rapidly)
+let triggerInboxSyncTimer = null;
+const TRIGGER_INBOX_SYNC_DEBOUNCE_MS = 5000; // 5 seconds debounce
 
 // =============================================================================
 // Instagram Direct API Fetching (Mode A - Extension-Direct)
@@ -2315,20 +2499,36 @@ async function forwardMessagesToBackend(threadId, threadV2Id, messages, dsUserId
   const authToken = await getAuthToken();
   if (!authToken) {
     console.warn('[DialogBrain Hybrid] No auth token, cannot forward messages');
-    return;
+    return 0;
+  }
+
+  // CRITICAL: Verify account matches current Instagram session before forwarding
+  if (!currentInstagramAccount?.id) {
+    console.warn('[DialogBrain Hybrid] No channel_account, cannot forward messages');
+    return 0;
+  }
+  if (dsUserId && currentInstagramAccount.externalId !== dsUserId) {
+    console.warn(`[DialogBrain Hybrid] Account mismatch in forward: account=${currentInstagramAccount.externalId}, session=${dsUserId}. Aborting.`);
+    return 0;
   }
 
   const apiUrl = await getApiUrl();
-  const storage = await chrome.storage.local.get(['instagram_account_id']);
+
+  if (!currentInstagramAccount?.id) {
+    // Try to fetch account (may be null after service worker restart)
+    await fetchInstagramAccount();
+    if (!currentInstagramAccount?.id) {
+      console.warn('[DialogBrain Hybrid] No account ID, cannot forward messages');
+      return 0;
+    }
+  }
 
   // Extract participant IDs from thread users (exclude self)
-  // This is crucial for matching threads when thread_id formats differ
   const participantIds = (threadUsers || [])
     .map(u => String(u.pk || u.pk_id || u.id || ''))
     .filter(id => id && id !== String(dsUserId));
 
   // Extract participant names for thread title (exclude self)
-  // Prefer full_name, fallback to username
   const otherParticipants = (threadUsers || [])
     .filter(u => String(u.pk || u.pk_id || u.id || '') !== String(dsUserId));
   const participantName = otherParticipants.length > 0
@@ -2339,26 +2539,22 @@ async function forwardMessagesToBackend(threadId, threadV2Id, messages, dsUserId
     threadId,
     messageCount: messages?.length,
     dsUserId,
-    accountId: storage.instagram_account_id,
+    accountId: currentInstagramAccount.id,
     participantIds,
     apiUrl,
   });
 
-  if (!storage.instagram_account_id) {
-    console.warn('[DialogBrain Hybrid] No account ID, cannot forward messages');
-    return;
-  }
+  let forwardedCount = 0;
+  let dedupCount = 0;
 
   for (const item of messages) {
     const messageId = item.item_id;
 
     // Check for duplicate locally
     if (messageId && isMessageDuplicate(messageId)) {
+      dedupCount++;
       continue;
     }
-
-    // Debug: log the full item structure to see what fields Instagram returns
-    console.log('[DialogBrain Hybrid] Item structure:', JSON.stringify(item, null, 2));
 
     // Extract text - Instagram uses 'text' for text messages
     // For other item types (media, reel_share, etc), text may be elsewhere
@@ -2398,24 +2594,38 @@ async function forwardMessagesToBackend(threadId, threadV2Id, messages, dsUserId
     };
 
     try {
-      await fetch(`${apiUrl}/api/channels/instagram/hybrid/message`, {
+      const resp = await fetch(`${apiUrl}/api/channels/instagram/hybrid/message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          account_id: String(storage.instagram_account_id),  // Ensure string for Pydantic
+          account_id: String(currentInstagramAccount.id),
           event_type: 'direct_message',
           event_data: eventData,
           source: 'extension_fetch',
           timestamp: Date.now(),
         }),
       });
+      const result = await resp.json().catch(() => ({}));
+      if (result.processed) {
+        forwardedCount++;
+      } else if (result.duplicate) {
+        dedupCount++;
+      } else if (!resp.ok || result.error) {
+        console.warn('[DialogBrain Hybrid] Backend rejected message:', result.error || resp.status);
+      }
     } catch (e) {
       console.error('[DialogBrain Hybrid] Failed to forward message:', e.message);
     }
   }
+
+  if (dedupCount > 0) {
+    console.log(`[DialogBrain Hybrid] forwardMessagesToBackend: forwarded=${forwardedCount}, deduped=${dedupCount} for thread ${threadId}`);
+  }
+
+  return forwardedCount;
 }
 
 /**
@@ -2432,6 +2642,74 @@ async function findInstagramTab() {
     console.warn('[DialogBrain Hybrid] Error finding Instagram tab:', e.message);
   }
   return null;
+}
+
+/**
+ * Broadcast sync progress to popup and all Instagram content scripts.
+ * @param {'idle'|'syncing'|'done'|'error'} status
+ * @param {number} current - Current thread index (0-based)
+ * @param {number} total - Total number of threads
+ * @param {string} [error] - Error message if status is 'error'
+ */
+async function broadcastSyncProgress(status, current = 0, total = 0, error = null, messagesSynced = 0) {
+  const payload = {
+    type: 'SYNC_PROGRESS',
+    status,
+    current,
+    total,
+    error,
+    messagesSynced,
+  };
+
+  try { chrome.runtime.sendMessage(payload); } catch (_) {}
+
+  try {
+    const tabs = await chrome.tabs.query({ url: 'https://*.instagram.com/*' });
+    for (const tab of tabs) {
+      if (tab.id) {
+        chrome.tabs.sendMessage(tab.id, {
+          ...payload,
+          target: 'instagram_content_script',
+          source: 'dialogbrain_ws',
+        }).catch(() => {});
+      }
+    }
+  } catch (_) {}
+}
+
+/**
+ * Broadcast sync state change to popup and all Instagram content scripts.
+ * Called after MANUAL_SYNC / RESET_SYNC so both UIs stay in sync.
+ */
+async function broadcastSyncState() {
+  const payload = {
+    type: 'SYNC_STATE_CHANGED',
+    instagram: {
+      ...syncStatus.instagram,
+      provider: currentInstagramAccount?.provider || null,
+      accountId: currentInstagramAccount?.id || null,
+      displayName: currentInstagramAccount?.displayName || null,
+      username: currentInstagramAccount?.username || null,
+    },
+    linkedin: { ...syncStatus.linkedin },
+  };
+
+  // Notify popup / options pages (they listen via chrome.runtime.onMessage)
+  try { chrome.runtime.sendMessage(payload); } catch (_) {}
+
+  // Notify Instagram content scripts
+  try {
+    const tabs = await chrome.tabs.query({ url: 'https://*.instagram.com/*' });
+    for (const tab of tabs) {
+      if (tab.id) {
+        chrome.tabs.sendMessage(tab.id, {
+          ...payload,
+          target: 'instagram_content_script',
+          source: 'dialogbrain_ws',
+        }).catch(() => {});
+      }
+    }
+  } catch (_) {}
 }
 
 /**
@@ -2460,9 +2738,42 @@ async function syncInstagramMessages(threadId = null) {
     const cookies = await getInstagramCookies();
     const dsUserId = cookies.ds_user_id;
 
+    // Detect Instagram account switch — if ds_user_id changed, invalidate cache
+    if (currentInstagramAccount && dsUserId && currentInstagramAccount.externalId !== dsUserId) {
+      console.log(`[DialogBrain Hybrid] Instagram account switched: ${currentInstagramAccount.externalId} -> ${dsUserId}, refreshing`);
+      currentInstagramAccount = null;
+      instagramHybrid.seenMessages.clear();
+    }
+
+    // Ensure we have the correct account for the current session
+    if (!currentInstagramAccount?.id) {
+      await fetchInstagramAccount();
+    }
+
+    // CRITICAL: Do NOT sync if no matching channel_account exists for current ds_user_id
+    // This prevents syncing messages under wrong account after Instagram account switch
+    if (!currentInstagramAccount?.id) {
+      console.log(`[DialogBrain Hybrid] No channel_account in DB for ds_user_id=${dsUserId}, skipping message sync (user must Connect first)`);
+      return;
+    }
+    if (dsUserId && currentInstagramAccount.externalId !== dsUserId) {
+      console.log(`[DialogBrain Hybrid] Account mismatch: cached=${currentInstagramAccount.externalId}, cookie=${dsUserId}, skipping sync`);
+      currentInstagramAccount = null;
+      return;
+    }
+
+    // Clear in-memory dedup before full sync — backend has its own Redis dedup
+    // This prevents showing "0 messages synced" when the same messages are re-fetched
+    if (!threadId) {
+      instagramHybrid.seenMessages.clear();
+      console.log('[DialogBrain Hybrid] Cleared in-memory dedup for full inbox sync');
+    }
+
     console.log('[DialogBrain Hybrid] Syncing Instagram messages via content script...', {
       hasSessionId: !!cookies.sessionid,
       dsUserId: dsUserId,
+      accountId: currentInstagramAccount?.id,
+      accountExternalId: currentInstagramAccount?.externalId,
     });
 
     if (!cookies.sessionid) {
@@ -2502,9 +2813,27 @@ async function syncInstagramMessages(threadId = null) {
       });
 
       if (response?.success && response.inbox?.threads) {
-        console.log(`[DialogBrain Hybrid] Fetched ${response.inbox.threads.length} threads from inbox`);
+        const threads = response.inbox.threads;
+        const total = threads.length;
+        let totalMessagesSynced = 0;
+        console.log(`[DialogBrain Hybrid] Fetched ${total} threads from inbox`);
+        // Log first thread structure for debugging
+        if (threads.length > 0) {
+          const t0 = threads[0];
+          console.log('[DialogBrain Hybrid] Thread[0] keys:', Object.keys(t0).join(', '));
+          console.log('[DialogBrain Hybrid] Thread[0] thread_id:', t0.thread_id, 'thread_v2_id:', t0.thread_v2_id);
+          console.log('[DialogBrain Hybrid] Thread[0] items:', Array.isArray(t0.items) ? t0.items.length : typeof t0.items);
+          console.log('[DialogBrain Hybrid] Thread[0] last_permanent_item:', t0.last_permanent_item ? Object.keys(t0.last_permanent_item).join(', ') : 'null');
+          console.log('[DialogBrain Hybrid] Thread[0] users:', Array.isArray(t0.users) ? t0.users.length : typeof t0.users);
+          if (t0.items && t0.items.length > 0) {
+            console.log('[DialogBrain Hybrid] Thread[0].items[0] keys:', Object.keys(t0.items[0]).join(', '));
+            console.log('[DialogBrain Hybrid] Thread[0].items[0] item_id:', t0.items[0].item_id, 'item_type:', t0.items[0].item_type, 'text:', (t0.items[0].text || '').substring(0, 50));
+          }
+        }
+        broadcastSyncProgress('syncing', 0, total, null, 0);
 
-        for (const thread of response.inbox.threads) {
+        for (let i = 0; i < threads.length; i++) {
+          const thread = threads[i];
           // Get items from thread.items array, or use last_permanent_item as fallback
           let items = thread.items || [];
 
@@ -2516,22 +2845,32 @@ async function syncInstagramMessages(threadId = null) {
           }
 
           if (items.length > 0) {
-            console.log(`[DialogBrain Hybrid] Forwarding ${items.length} messages from thread ${thread.thread_id}`);
+            console.log(`[DialogBrain Hybrid] Forwarding ${items.length} messages from thread ${thread.thread_id} (item_ids: ${items.map(it => it.item_id).join(', ')})`);
             // Pass thread.users for participant-based matching when thread IDs differ
             // Pass thread_v2_id for backend validation
-            await forwardMessagesToBackend(thread.thread_id, thread.thread_v2_id, items, dsUserId, thread.users);
+            const forwarded = await forwardMessagesToBackend(thread.thread_id, thread.thread_v2_id, items, dsUserId, thread.users);
+            totalMessagesSynced += (forwarded || 0);
+            if (forwarded === 0 && items.length > 0) {
+              console.log(`[DialogBrain Hybrid] All ${items.length} messages were deduplicated for thread ${thread.thread_id}`);
+            }
           } else {
             console.log(`[DialogBrain Hybrid] Thread ${thread.thread_id} has no items or last_permanent_item`);
           }
+
+          broadcastSyncProgress('syncing', i + 1, total, null, totalMessagesSynced);
         }
+
+        broadcastSyncProgress('done', total, total, null, totalMessagesSynced);
       } else {
         console.warn('[DialogBrain Hybrid] Failed to fetch inbox via content script:', response?.error);
+        broadcastSyncProgress('error', 0, 0, response?.error || 'Failed to fetch inbox', 0);
       }
     }
 
     console.log('[DialogBrain Hybrid] Instagram message sync completed');
   } catch (e) {
     console.error('[DialogBrain Hybrid] syncInstagramMessages error:', e.message);
+    broadcastSyncProgress('error', 0, 0, e.message, 0);
   }
 }
 
@@ -2582,15 +2921,14 @@ async function handleDomActivityDetected(payload) {
       if (!authToken) return;
 
       const apiUrl = await getApiUrl();
-      const storage = await chrome.storage.local.get(['instagram_account_id']);
 
-      if (!storage.instagram_account_id) {
+      if (!currentInstagramAccount?.id) {
         console.warn('[DialogBrain Hybrid] No Instagram account ID for DOM sync');
         return;
       }
 
       // 1. Sync cookies to keep session fresh
-      const response = await fetch(`${apiUrl}/api/channels/instagram/accounts/${storage.instagram_account_id}/sync-cookie`, {
+      const response = await fetch(`${apiUrl}/api/channels/instagram/accounts/${currentInstagramAccount.id}/sync-cookie`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2636,9 +2974,8 @@ async function handleInstagramDmEvent(payload) {
     if (!authToken) return;
 
     const apiUrl = await getApiUrl();
-    const storage = await chrome.storage.local.get(['instagram_account_id']);
 
-    if (!storage.instagram_account_id) {
+    if (!currentInstagramAccount?.id) {
       console.warn('[DialogBrain Hybrid] No Instagram account ID, cannot forward event');
       return;
     }
@@ -2651,7 +2988,7 @@ async function handleInstagramDmEvent(payload) {
         'Authorization': `Bearer ${authToken}`,
       },
       body: JSON.stringify({
-        account_id: storage.instagram_account_id,
+        account_id: currentInstagramAccount.id,
         event_type: event.type,
         event_data: event,
         source: 'content_script',
@@ -2765,15 +3102,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GET_STATUS') {
     // Check and reset any stuck syncs before returning status
     checkAndResetStuckSyncs();
-    sendResponse({
-      instagram: syncStatus.instagram,
-      linkedin: syncStatus.linkedin,
-      instagramHybrid: {
-        mode: instagramHybrid.mode,
-        tabsCount: instagramHybrid.tabs.size,
-        lastModeChange: instagramHybrid.lastModeChange,
-      },
-    });
+    // Auto-fetch account if cache is empty (e.g. after account switch or SW restart)
+    (async () => {
+      if (!currentInstagramAccount?.id) {
+        await fetchInstagramAccount();
+      }
+      sendResponse({
+        instagram: {
+          ...syncStatus.instagram,
+          provider: currentInstagramAccount?.provider || null,
+          accountId: currentInstagramAccount?.id || null,
+          displayName: currentInstagramAccount?.displayName || null,
+          username: currentInstagramAccount?.username || null,
+        },
+        linkedin: {
+          ...syncStatus.linkedin,
+        },
+        instagramHybrid: {
+          mode: instagramHybrid.mode,
+          tabsCount: instagramHybrid.tabs.size,
+          lastModeChange: instagramHybrid.lastModeChange,
+        },
+      });
+    })();
     return true;
   }
 
@@ -2783,36 +3134,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log(`[DialogBrain] Manual sync reset requested for: ${platform}`);
     if (platform === 'all' || platform === 'instagram') {
       syncStatus.instagram = { syncing: false, lastSync: null, error: null, startedAt: null };
+      currentInstagramAccount = null;
     }
     if (platform === 'all' || platform === 'linkedin') {
       syncStatus.linkedin = { syncing: false, lastSync: null, error: null, startedAt: null };
     }
     sendResponse({ success: true, status: { instagram: syncStatus.instagram, linkedin: syncStatus.linkedin } });
+    broadcastSyncState();
     return true;
   }
 
   if (message.type === 'MANUAL_SYNC') {
     if (message.platform === 'instagram') {
-      syncInstagramCookies()
+      syncInstagramCookies({ allowCreate: true })
         .then((result) => {
           console.log('[DialogBrain] Instagram sync completed:', result);
           sendResponse({ success: result?.success ?? false, status: syncStatus.instagram });
+          broadcastSyncState();
         })
         .catch((error) => {
           console.error('[DialogBrain] Instagram sync error in MANUAL_SYNC:', error);
           syncStatus.instagram = { syncing: false, lastSync: null, error: error.message, startedAt: null };
           sendResponse({ success: false, status: syncStatus.instagram, error: error.message });
+          broadcastSyncState();
         });
     } else if (message.platform === 'linkedin') {
       syncLinkedInCookies()
         .then((result) => {
           console.log('[DialogBrain] LinkedIn sync completed:', result);
           sendResponse({ success: result?.success ?? false, status: syncStatus.linkedin });
+          broadcastSyncState();
         })
         .catch((error) => {
           console.error('[DialogBrain] LinkedIn sync error in MANUAL_SYNC:', error);
           syncStatus.linkedin = { syncing: false, lastSync: null, error: error.message, startedAt: null };
           sendResponse({ success: false, status: syncStatus.linkedin, error: error.message });
+          broadcastSyncState();
         });
     } else {
       sendResponse({ success: false, error: 'Unknown platform' });
@@ -2852,14 +3209,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Connect WebSocket for auto-reply events
       await extensionWS.connect();
 
+      // Fetch and cache Instagram provider
+      fetchInstagramAccount().catch(e => console.warn('[DialogBrain] Failed to fetch account on auth:', e.message));
+
       sendResponse({ success: true });
     });
     return true;
   }
 
   if (message.type === 'LOGOUT') {
-    chrome.storage.local.remove(['auth_token', 'refresh_token', 'instagram_account_id', 'linkedin_account_id']).then(() => {
+    chrome.storage.local.remove(['auth_token', 'refresh_token', 'linkedin_account_id']).then(() => {
       console.log('[DialogBrain] Logged out');
+      currentInstagramAccount = null;
       syncStatus = {
         instagram: { syncing: false, lastSync: null, error: 'Not logged in', startedAt: null },
         linkedin: { syncing: false, lastSync: null, error: 'Not logged in', startedAt: null },
@@ -2907,6 +3268,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       wsConnected: extensionWS.isConnected(),
       autoMode: draftState.autoMode.instagram?.dm_send_mode === 'auto',
       drafts: Array.from(draftState.drafts.values()),
+      instagramAccountId: currentInstagramAccount?.id || null,
     });
     return true;
   }
@@ -2932,12 +3294,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // Sync with specific approach
+  // Sync with specific approach (user-initiated from InstagramAuthForm)
   if (message.type === 'SYNC_INSTAGRAM') {
     (async () => {
       const result = await syncInstagramCookies({
         useUnipile: message.useUnipile !== false, // Default true
         forceExtensionVerify: message.forceExtensionVerify || false,
+        allowCreate: true, // User clicked Connect
       });
       sendResponse(result);
     })();
@@ -3244,18 +3607,19 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
   }
 
   if (message.type === 'GET_STATUS') {
-    // Check and reset any stuck syncs before returning status
     checkAndResetStuckSyncs();
-    // Check cookies and include hasSession in response
     (async () => {
       const instagram = await getInstagramCookies();
       const linkedin = await getLinkedInCookies();
+
       sendResponse({
         installed: true,
         version: chrome.runtime.getManifest().version,
         instagram: {
           ...syncStatus.instagram,
-          hasSession: !!instagram.sessionid
+          hasSession: !!instagram.sessionid,
+          provider: currentInstagramAccount?.provider || null,
+          accountId: currentInstagramAccount?.id || null,
         },
         linkedin: {
           ...syncStatus.linkedin,
@@ -3285,6 +3649,9 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
       // Connect WebSocket for auto-reply events
       await extensionWS.connect();
 
+      // Fetch and cache Instagram provider
+      fetchInstagramAccount().catch(e => console.warn('[DialogBrain] Failed to fetch account on auth:', e.message));
+
       sendResponse({ success: true, devMode: isDevMode });
     });
     return true;
@@ -3295,9 +3662,10 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
     (async () => {
       console.log('[DialogBrain] Logout received, disconnecting WebSocket');
       extensionWS.disconnect();
+      currentInstagramAccount = null;
       draftState.drafts.clear();
       draftState.pendingCounts = { instagram: 0, telegram: 0, whatsapp: 0, email: 0 };
-      await chrome.storage.local.remove(['auth_token', 'refresh_token', 'instagram_account_id', 'linkedin_account_id']);
+      await chrome.storage.local.remove(['auth_token', 'refresh_token', 'linkedin_account_id']);
       sendResponse({ success: true });
     })();
     return true;
@@ -3342,12 +3710,13 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
     return true;
   }
 
-  // Sync Instagram with specific approach
+  // Sync Instagram with specific approach (user-initiated from InstagramAuthForm)
   if (message.type === 'SYNC_INSTAGRAM') {
     (async () => {
       const result = await syncInstagramCookies({
         useUnipile: message.useUnipile !== false, // Default true
         forceExtensionVerify: message.forceExtensionVerify || false,
+        allowCreate: true, // User clicked Connect
       });
       sendResponse({ installed: true, ...result, status: syncStatus.instagram });
     })();
@@ -3531,7 +3900,7 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
     (async () => {
       try {
         const cookies = await getInstagramCookies();
-        const storage = await chrome.storage.local.get(['instagram_account_id', 'auth_token', 'dev_mode']);
+        const storage = await chrome.storage.local.get(['auth_token', 'dev_mode']);
 
         // Test content script fetch (the correct approach)
         let contentScriptTest = null;
@@ -3570,7 +3939,7 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
             hasMid: !!cookies.mid,
           },
           storage: {
-            instagramAccountId: storage.instagram_account_id || null,
+            instagramAccountId: currentInstagramAccount?.id || null,
             hasAuthToken: !!storage.auth_token,
             devMode: storage.dev_mode,
           },
@@ -4017,6 +4386,9 @@ chrome.runtime.onInstalled.addListener(() => {
     // This ensures autoMode is synced even if storage is empty
     console.log('[DialogBrain] Loading auto-reply settings on startup...');
     await loadSettingsViaRestApi();
+
+    // Phase 4: Cache Instagram provider on startup
+    fetchInstagramAccount().catch(e => console.warn('[DialogBrain] Failed to fetch account on startup:', e.message));
   } else {
     console.log('[DialogBrain] No auth token, WebSocket not connected');
   }

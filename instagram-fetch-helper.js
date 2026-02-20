@@ -144,6 +144,18 @@
     }
 
     console.log('[DialogBrain Fetch] Inbox response:', response.status, data.status, 'threads:', data.inbox?.threads?.length);
+    // Diagnostic: log first thread structure
+    if (data.inbox?.threads?.length > 0) {
+      const t = data.inbox.threads[0];
+      console.log('[DialogBrain Fetch] Thread[0] keys:', Object.keys(t).join(', '));
+      console.log('[DialogBrain Fetch] Thread[0] items:', Array.isArray(t.items) ? t.items.length : typeof t.items);
+      console.log('[DialogBrain Fetch] Thread[0] last_permanent_item:', t.last_permanent_item ? 'present' : 'null');
+      if (t.items && t.items.length > 0) {
+        console.log('[DialogBrain Fetch] Thread[0].items[0]:', JSON.stringify(t.items[0]).substring(0, 200));
+      } else if (t.last_permanent_item) {
+        console.log('[DialogBrain Fetch] Thread[0].last_permanent_item:', JSON.stringify(t.last_permanent_item).substring(0, 200));
+      }
+    }
 
     return {
       success: response.ok && data.status === 'ok',
