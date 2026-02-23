@@ -7081,6 +7081,7 @@
     provider,
     accountId,
     username,
+    usernameCheckDone,
     onRefresh,
     onInfoMessage
   }) {
@@ -7160,8 +7161,22 @@
       ] });
     }
     if (hasInstagramTab) {
-      const connectLabel = username ? `Connect @${username}` : "Connect Instagram";
-      const label = connectingState === "checking" ? "Checking..." : connectingState === "connecting" ? "Connecting..." : connectLabel;
+      if (!usernameCheckDone) {
+        return /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "connect-ig-btn", disabled: true, children: "Detecting account..." });
+      }
+      if (!username) {
+        return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "username-error", children: [
+            "Could not detect Instagram username. Open the",
+            " ",
+            /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: "https://www.instagram.com/", target: "_blank", rel: "noreferrer", children: "Instagram main page" }),
+            " ",
+            "and try again."
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "connect-ig-btn", disabled: true, children: "Connect Instagram" })
+        ] });
+      }
+      const label = connectingState === "checking" ? "Checking..." : connectingState === "connecting" ? "Connecting..." : `Connect @${username}`;
       return /* @__PURE__ */ jsxRuntimeExports.jsx(
         "button",
         {
@@ -7242,7 +7257,7 @@
     /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "2", y: "9", width: "4", height: "12", fill: "#0A66C2" }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "4", cy: "4", r: "2", fill: "#0A66C2" })
   ] });
-  function PlatformCard({ platform, status, cookies, hasInstagramTab, instagramUsername, syncProgress, onRefresh }) {
+  function PlatformCard({ platform, status, cookies, hasInstagramTab, instagramUsername, usernameCheckDone, syncProgress, onRefresh }) {
     const badge = getStatusBadge(status, cookies);
     const info = getInfoText(status);
     const [infoOverride, setInfoOverride] = React.useState(null);
@@ -7304,6 +7319,7 @@
           provider,
           accountId: status.accountId || null,
           username: instagramUsername || status.username || null,
+          usernameCheckDone: !!usernameCheckDone,
           onRefresh,
           onInfoMessage: setInfoOverride
         }
@@ -7317,6 +7333,7 @@
     const [cookies, setCookies] = reactExports.useState(null);
     const [hasInstagramTab, setHasInstagramTab] = reactExports.useState(false);
     const [instagramUsername, setInstagramUsername] = reactExports.useState(null);
+    const [usernameCheckDone, setUsernameCheckDone] = reactExports.useState(false);
     const [baseUrl, setBaseUrl] = reactExports.useState("");
     const [syncProgress, setSyncProgress] = reactExports.useState(null);
     const refresh = reactExports.useCallback(async () => {
@@ -7344,11 +7361,22 @@
       const usernameFromSync = (_a = sync == null ? void 0 : sync.instagram) == null ? void 0 : _a.username;
       if (usernameFromSync) {
         setInstagramUsername(usernameFromSync);
+        setUsernameCheckDone(true);
       } else if (igTab) {
+        setUsernameCheckDone(false);
         sendChromeMessage("VERIFY_INSTAGRAM_SESSION").then((r2) => {
-          if (r2 == null ? void 0 : r2.username) setInstagramUsername(r2.username);
+          if (r2 == null ? void 0 : r2.username) {
+            setInstagramUsername(r2.username);
+          } else {
+            setInstagramUsername(null);
+          }
+          setUsernameCheckDone(true);
         }).catch(() => {
+          setInstagramUsername(null);
+          setUsernameCheckDone(true);
         });
+      } else {
+        setUsernameCheckDone(true);
       }
       const url = await getBaseUrl();
       setBaseUrl(url);
@@ -7419,6 +7447,7 @@
             cookies: cookies == null ? void 0 : cookies.instagram,
             hasInstagramTab,
             instagramUsername,
+            usernameCheckDone,
             syncProgress,
             onRefresh: refresh
           }

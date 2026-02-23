@@ -1553,33 +1553,62 @@
         // Extract logged-in username from Instagram DOM (no API calls needed)
         (() => {
           try {
-            // Method 1: Nav link with "Profile" text
-            const navLinks = [...document.querySelectorAll('a')];
-            const profileNavLink = navLinks.find(a => {
-              const children = a.querySelectorAll('div, span');
-              return [...children].some(s => s.textContent === 'Profile');
-            });
-            if (profileNavLink) {
-              const href = profileNavLink.getAttribute('href');
-              const match = href && href.match(/^\/([a-zA-Z0-9_.]+)\/$/);
-              if (match) {
-                sendResponse({ success: true, username: match[1] });
-                return;
-              }
-            }
+            // Known Instagram paths that are NOT usernames
+            const knownPaths = new Set([
+              '', 'explore', 'reels', 'direct', 'accounts', 'stories',
+              'p', 'tv', 'reel', 'live', 'nametag', 'about', 'press',
+              'api', 'developer', 'legal', 'terms', 'privacy',
+            ]);
 
-            // Method 2: Profile picture alt text "X's profile picture"
-            const profilePics = document.querySelectorAll('img[alt*="profile picture"]');
-            for (const img of profilePics) {
-              const match = img.alt.match(/^(.+?)'s profile picture$/);
-              if (match && img.closest('a[href]')) {
-                const link = img.closest('a[href]');
-                const hrefMatch = link.getAttribute('href').match(/^\/([a-zA-Z0-9_.]+)\/$/);
-                if (hrefMatch) {
+            // Method 1 (locale-independent, most reliable):
+            // Find profile picture <img> whose alt contains a username that
+            // matches a parent <a> link with /<username>/ href pattern.
+            // Works for all languages: "Фото профиля rkomaro", "rkomaro's profile picture", etc.
+            const allImgs = document.querySelectorAll('img[alt]');
+            for (const img of allImgs) {
+              const link = img.closest('a[href]');
+              if (!link) continue;
+              const href = link.getAttribute('href');
+              const hrefMatch = href && href.match(/^\/([a-zA-Z0-9_.]+)\/$/);
+              if (hrefMatch && !knownPaths.has(hrefMatch[1])) {
+                // Verify the alt text contains this username (profile pictures always do)
+                if (img.alt.includes(hrefMatch[1])) {
                   sendResponse({ success: true, username: hrefMatch[1] });
                   return;
                 }
               }
+            }
+
+            // Method 2 (locale-independent fallback):
+            // Scan ALL links for /<username>/ pattern excluding known paths.
+            // The sidebar always has exactly one user-specific link (profile).
+            const allLinks = [...document.querySelectorAll('a[href]')];
+            const candidates = [];
+            for (const a of allLinks) {
+              const href = a.getAttribute('href');
+              const match = href && href.match(/^\/([a-zA-Z0-9_.]+)\/$/);
+              if (match && !knownPaths.has(match[1])) {
+                candidates.push(match[1]);
+              }
+            }
+            // If exactly one unique username found, it's the logged-in user
+            const uniqueUsernames = [...new Set(candidates)];
+            if (uniqueUsernames.length === 1) {
+              sendResponse({ success: true, username: uniqueUsernames[0] });
+              return;
+            }
+
+            // Method 3: Look for logged-in user data in Instagram's embedded JSON
+            const scripts = document.querySelectorAll('script[type="application/json"]');
+            for (const script of scripts) {
+              try {
+                const text = script.textContent || '';
+                const viewerMatch = text.match(/"viewer"\s*:\s*\{[^}]*"username"\s*:\s*"([a-zA-Z0-9_.]+)"/);
+                if (viewerMatch) {
+                  sendResponse({ success: true, username: viewerMatch[1] });
+                  return;
+                }
+              } catch (_) {}
             }
 
             sendResponse({ success: false, error: 'Username not found in DOM' });

@@ -333,6 +333,22 @@ body {
   cursor: not-allowed;
 }
 
+.username-error {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-radius: 6px;
+  color: #c53030;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.username-error a {
+  color: #c53030;
+  text-decoration: underline;
+}
+
 .open-hint {
   margin-top: 8px;
   text-align: center;

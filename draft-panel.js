@@ -7279,35 +7279,11 @@
     const [syncProgress, setSyncProgress] = reactExports.useState(null);
     const version = ((_c = (_b = (_a = chrome == null ? void 0 : chrome.runtime) == null ? void 0 : _a.getManifest) == null ? void 0 : _b.call(_a)) == null ? void 0 : _c.version) || "0.0.0";
     reactExports.useEffect(() => {
-      var _a2, _b2;
-      try {
-        const navLinks = [...document.querySelectorAll("a")];
-        const profileLink = navLinks.find((a) => {
-          const children = a.querySelectorAll("div, span");
-          return [...children].some((s) => s.textContent === "Profile");
-        });
-        if (profileLink) {
-          const match = (_a2 = profileLink.getAttribute("href")) == null ? void 0 : _a2.match(/^\/([a-zA-Z0-9_.]+)\/$/);
-          if (match) {
-            setInstagramUsername(match[1]);
-            return;
-          }
+      chrome.runtime.sendMessage({ type: "VERIFY_INSTAGRAM_SESSION" }, (result) => {
+        if (result == null ? void 0 : result.username) {
+          setInstagramUsername(result.username);
         }
-        const imgs = document.querySelectorAll('img[alt*="profile picture"]');
-        for (const img of imgs) {
-          const altMatch = img.alt.match(/^(.+?)'s profile picture$/);
-          if (altMatch) {
-            const link = img.closest("a[href]");
-            const hrefMatch = (_b2 = link == null ? void 0 : link.getAttribute("href")) == null ? void 0 : _b2.match(/^\/([a-zA-Z0-9_.]+)\/$/);
-            if (hrefMatch) {
-              setInstagramUsername(hrefMatch[1]);
-              return;
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("[DraftPanel] Could not read username from DOM:", e);
-      }
+      });
     }, []);
     const pendingSendsRef = reactExports.useRef([]);
     const isProcessingRef = reactExports.useRef(false);
